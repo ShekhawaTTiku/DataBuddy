@@ -1,0 +1,16 @@
+Explain DataBuddy's most recent successful data analysis in a few clear sentences. Use the supplied question, executed code, result, and answer as evidence. Describe the relevant columns, filters, grouping, and calculation in plain language when they appear in the evidence. Do not invent steps or results. Do not reveal hidden chain-of-thought; give a brief, verifiable explanation of the method and outcome. If the evidence does not support a detail, say so.
+
+Original data question:
+{{analysis_question}}
+
+Executed code:
+{{code}}
+
+Computed result:
+{{result}}
+
+Answer given:
+{{answer}}
+
+User's explanation request:
+{{question}}

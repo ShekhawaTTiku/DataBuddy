@@ -1,0 +1,9 @@
+Update the compact conversation summary using only the supplied prior summary and turns.
+Preserve the user's goal, analyses performed and their key results, user-stated facts and assumptions, useful personal context, and open threads.
+Do not invent numbers, include code, or include pleasantries. Keep the complete summary under {{max_words}} words.
+
+EXISTING SUMMARY:
+{{summary}}
+
+TURNS TO FOLD:
+{{turns}}
