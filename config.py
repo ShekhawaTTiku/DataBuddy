@@ -1,6 +1,16 @@
 import os
 from dotenv import load_dotenv
 
+# On Streamlit Community Cloud, secrets are exposed via st.secrets, not .env.
+# Inject them into os.environ so the rest of the config works identically.
+try:
+    import streamlit as st
+    if hasattr(st, "secrets"):
+        for key, value in st.secrets.items():
+            os.environ.setdefault(str(key), str(value))
+except Exception:
+    pass  # Not running inside Streamlit — that's fine
+
 load_dotenv()
 
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")

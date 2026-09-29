@@ -52,7 +52,10 @@ def _text_content(content) -> str:
 def _mistral_completion(prompt: str, model: str, json_mode: bool = False) -> str:
     if not config.MISTRAL_API_KEY:
         raise RuntimeError("MISTRAL_API_KEY is not set in the environment or .env file.")
-    from mistralai.client import Mistral
+    try:
+        from mistralai import Mistral
+    except ImportError:
+        from mistralai.client import Mistral
     client = Mistral(api_key=config.MISTRAL_API_KEY)
 
     def request():
