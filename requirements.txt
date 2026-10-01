@@ -7,3 +7,5 @@ google-genai
 mistralai
 tzdata
 streamlit
+plotly
+kaleido

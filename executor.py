@@ -22,6 +22,8 @@ class ExecutionResult:
     ok: bool
     result_text: str | None
     error: str | None
+    chart_json: str | None = None
+    chart_description: str | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -54,13 +56,13 @@ def _static_check(code: str) -> str | None:
         if isinstance(node, ast.Import):
             for alias in node.names:
                 top = alias.name.split(".")[0]
-                if top not in ("pandas", "numpy", "pd", "np"):
+                if top not in ("pandas", "numpy", "pd", "np", "plotly"):
                     return f"Blocked import: '{alias.name}' is not allowed."
 
         if isinstance(node, ast.ImportFrom):
             if node.module is not None:
                 top = node.module.split(".")[0]
-                if top not in ("pandas", "numpy", "pd", "np"):
+                if top not in ("pandas", "numpy", "pd", "np", "plotly"):
                     return f"Blocked import: 'from {node.module}' is not allowed."
 
         # --- Forbidden function calls by name ---
@@ -146,7 +148,13 @@ def run_code(code: str, df: pd.DataFrame) -> ExecutionResult:
 
         data = json.loads(stdout)
         if data.get("status") == "ok":
-            return ExecutionResult(ok=True, result_text=data["result"], error=None)
+            return ExecutionResult(
+                ok=True,
+                result_text=data["result"],
+                error=None,
+                chart_json=data.get("chart"),
+                chart_description=data.get("chart_description"),
+            )
         else:
             return ExecutionResult(ok=False, result_text=None, error=data.get("error", "Unknown runner error."))
 

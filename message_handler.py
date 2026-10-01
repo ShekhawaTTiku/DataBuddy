@@ -22,12 +22,19 @@ _CONVERSATION_EXPLANATION_QUERY = re.compile(
 _ANALYSIS_TERMS = re.compile(
     r"\b(sum|total|average|mean|median|count|highest|lowest|top|bottom|compare|"
     r"group|grouped|filter|sales|profit|revenue|rows|columns|missing values|"
-    r"dataset|data|chart|plot|trend|correlation|outlier|distribution)\b", re.I)
+    r"dataset|data|trend|outlier)\b", re.I)
+_VISUALIZATION_TERMS = re.compile(
+    r"\b(chart|plot|graph|visuali[sz]e|bar chart|line chart|pie chart|histogram|"
+    r"scatter|heatmap|distribution|correlation|dashboard|donut|box plot|"
+    r"show me a .*(chart|graph|plot)|draw|diagram)\b", re.I)
+_CHART_MODIFY_TERMS = re.compile(
+    r"\b(change the (color|chart|type|title|label)|make it (horizontal|vertical)|"
+    r"add a trend|switch to|update the (chart|title|axis)|rotate|flip)\b", re.I)
 _FOLLOWUP = re.compile(r"\b(what about|second highest|second-highest|same for|and for|why|instead|those|that one)\b", re.I)
 
 
 def route_message(question: str, columns: list[str], conversation: str,
-                  has_analysis_context: bool) -> dict[str, str]:
+                  has_analysis_context: bool, has_chart_context: bool = False) -> dict[str, str]:
     """Use the third LLM to classify; fall back to local rules if it is unavailable."""
     if _TIME_QUERY.search(question):
         return {"route": "clock", "reply": ""}
@@ -39,13 +46,23 @@ def route_message(question: str, columns: list[str], conversation: str,
     try:
         result = json.loads(classify_message(prompt))
         route = result.get("route")
-        if route in {"analysis", "conversation", "explain_analysis", "clock"}:
+        if route in {"analysis", "conversation", "explain_analysis", "clock",
+                     "visualization", "modify_chart"}:
             return {"route": route, "reply": str(result.get("reply") or "")}
     except Exception as exc:
         if config.DEBUG:
             print(f"[router] LLM classification unavailable; using local fallback: {exc}")
 
     lowered = question.casefold()
+
+    # Local fallback: chart modification (only if there's a previous chart)
+    if has_chart_context and _CHART_MODIFY_TERMS.search(question):
+        return {"route": "modify_chart", "reply": ""}
+
+    # Local fallback: visualization request
+    if _VISUALIZATION_TERMS.search(question):
+        return {"route": "visualization", "reply": ""}
+
     if has_analysis_context and _FOLLOWUP.search(question):
         return {"route": "analysis", "reply": ""}
     if _CONVERSATION_EXPLANATION_QUERY.search(question):

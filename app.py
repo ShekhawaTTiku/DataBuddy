@@ -54,8 +54,12 @@ def main():
             continue
 
         try:
-            answer = buddy.ask(question)
-            print(f"\n{answer}")
+            result = buddy.ask(question)
+            if result.chart_json:
+                print("\n📊 [Chart generated — view in the web app for interactive display]")
+            print(f"\n{result.answer}")
+            if result.visualization_suggestion:
+                print(f"\n💡 {result.visualization_suggestion}")
 
         except Exception as e:
             print(f"\nError: {type(e).__name__}: {e}")

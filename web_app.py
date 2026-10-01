@@ -30,7 +30,16 @@ _project_root = str(Path(__file__).resolve().parent)
 if _project_root not in sys.path:
     sys.path.insert(0, _project_root)
 
-from databuddy import DataBuddy  # noqa: E402
+from databuddy import DataBuddy, AskResult  # noqa: E402
+
+# ---------------------------------------------------------------------------
+# Plotly import (for rendering chart JSON)
+# ---------------------------------------------------------------------------
+try:
+    import plotly.io as pio
+    _PLOTLY_AVAILABLE = True
+except ImportError:
+    _PLOTLY_AVAILABLE = False
 
 # ---------------------------------------------------------------------------
 # Supported upload extensions
@@ -260,6 +269,40 @@ hr {
     color: #A78BFA;
     text-decoration: none;
 }
+
+/* ---------- Chart container ---------- */
+.chart-container {
+    border: 1px solid rgba(108, 99, 255, 0.15);
+    border-radius: 12px;
+    padding: 0.5rem;
+    margin: 0.5rem 0;
+    background: rgba(108, 99, 255, 0.03);
+}
+
+/* ---------- Suggestion banner ---------- */
+.viz-suggestion {
+    background: linear-gradient(135deg, rgba(52, 211, 153, 0.08) 0%, rgba(96, 165, 250, 0.08) 100%);
+    border: 1px solid rgba(52, 211, 153, 0.2);
+    border-radius: 10px;
+    padding: 0.7rem 1rem;
+    margin-top: 0.5rem;
+    font-size: 0.88rem;
+    color: #D1D5DB;
+}
+
+/* ---------- Chart memory badge in sidebar ---------- */
+.chart-memory-badge {
+    background: rgba(244, 114, 182, 0.08);
+    border: 1px solid rgba(244, 114, 182, 0.2);
+    border-radius: 10px;
+    padding: 0.6rem 1rem;
+    margin: 0.5rem 0;
+    font-size: 0.8rem;
+    color: #D1D5DB;
+}
+.chart-memory-badge strong {
+    color: #F472B6;
+}
 </style>
 """
 
@@ -310,7 +353,7 @@ def _init_session_state() -> None:
         "buddy": None,             # DataBuddy instance
         "dataset_name": None,      # filename of current dataset
         "dataset_info": None,      # dict with rows, cols, preview text
-        "messages": [],            # UI chat history [{role, content}]
+        "messages": [],            # UI chat history [{role, content, chart_json?, suggestion?}]
         "temp_path": None,         # path to temporary uploaded file
     }
     for key, value in defaults.items():
@@ -344,6 +387,49 @@ def _load_dataset(uploaded_file) -> None:
     }
     # Clear UI chat when dataset changes
     st.session_state.messages = []
+
+
+def _render_chart(chart_json: str, msg_index: int) -> None:
+    """Render a Plotly chart from JSON and provide an export download button."""
+    if not _PLOTLY_AVAILABLE or not chart_json:
+        return
+
+    try:
+        fig = pio.from_json(chart_json)
+        st.plotly_chart(fig, use_container_width=True, theme="streamlit",
+                        key=f"chart_{msg_index}")
+
+        # Export button — generate PNG bytes for download
+        try:
+            png_bytes = fig.to_image(format="png", width=1200, height=600, scale=2)
+            st.download_button(
+                label="📥 Export as PNG",
+                data=png_bytes,
+                file_name="databuddy_chart.png",
+                mime="image/png",
+                key=f"export_{msg_index}",
+            )
+        except Exception:
+            # kaleido may not be installed — offer HTML export instead
+            html_str = pio.to_html(fig, include_plotlyjs="cdn", full_html=True)
+            st.download_button(
+                label="📥 Export as HTML",
+                data=html_str,
+                file_name="databuddy_chart.html",
+                mime="text/html",
+                key=f"export_{msg_index}",
+            )
+    except Exception as e:
+        st.warning(f"Could not render chart: {e}", icon="⚠️")
+
+
+def _render_suggestion(suggestion: str, msg_index: int) -> None:
+    """Render a visualization suggestion banner."""
+    if suggestion:
+        st.markdown(
+            f'<div class="viz-suggestion">💡 {suggestion}</div>',
+            unsafe_allow_html=True,
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -436,6 +522,18 @@ def main() -> None:
                     hide_index=True,
                 )
 
+        # --- Chart memory indicator ---
+        if (st.session_state.buddy is not None
+                and st.session_state.buddy.conversation.has_chart_context):
+            chart_count = len(st.session_state.buddy.conversation.chart_history)
+            st.markdown(
+                f'<div class="chart-memory-badge">'
+                f'📊 <strong>{chart_count}</strong> chart{"s" if chart_count != 1 else ""} '
+                f'in memory — ask me to modify any of them!'
+                f'</div>',
+                unsafe_allow_html=True,
+            )
+
         # --- Reset & About ---
         if st.session_state.buddy is not None:
             st.markdown("---")
@@ -462,7 +560,7 @@ def main() -> None:
             '  <div class="welcome-text">'
             '    Upload a CSV or Excel file in the sidebar to get started.<br>'
             '    Then ask questions about your data in plain English — '
-            '    DataBuddy will analyze it for you.'
+            '    DataBuddy will analyze it and create interactive charts for you.'
             '  </div>'
             '</div>',
             unsafe_allow_html=True,
@@ -470,11 +568,12 @@ def main() -> None:
 
         # Suggestion chips
         st.markdown("")
-        cols = st.columns(3)
+        cols = st.columns(4)
         suggestions = [
             ("📈", "Trend analysis"),
             ("🔍", "Find outliers"),
-            ("📊", "Summary stats"),
+            ("📊", "Visualize data"),
+            ("🔗", "Correlations"),
         ]
         for col, (icon, text) in zip(cols, suggestions):
             col.markdown(
@@ -487,9 +586,15 @@ def main() -> None:
         return
 
     # Render existing chat messages
-    for msg in st.session_state.messages:
+    for i, msg in enumerate(st.session_state.messages):
         with st.chat_message(msg["role"]):
+            # Render chart first (if present), then text
+            if msg.get("chart_json") and msg["role"] == "assistant":
+                _render_chart(msg["chart_json"], i)
             st.markdown(msg["content"])
+            # Render visualization suggestion (if present)
+            if msg.get("suggestion") and msg["role"] == "assistant":
+                _render_suggestion(msg["suggestion"], i)
 
     # Chat input
     if question := st.chat_input("Ask anything about your data…"):
@@ -502,12 +607,30 @@ def main() -> None:
         with st.chat_message("assistant"):
             with st.spinner("Analyzing…"):
                 try:
-                    answer = st.session_state.buddy.ask(question)
+                    result = st.session_state.buddy.ask(question)
                 except Exception as e:
-                    answer = f"⚠️ An error occurred: {type(e).__name__}: {e}"
-            st.markdown(answer)
+                    result = AskResult(answer=f"⚠️ An error occurred: {type(e).__name__}: {e}")
 
-        st.session_state.messages.append({"role": "assistant", "content": answer})
+            # Build the message entry for session state
+            msg_entry = {"role": "assistant", "content": result.answer}
+
+            # Render chart if present
+            if result.chart_json:
+                msg_entry["chart_json"] = result.chart_json
+                msg_idx = len(st.session_state.messages)
+                _render_chart(result.chart_json, msg_idx)
+
+            # Render text answer
+            st.markdown(result.answer)
+
+            # Render auto-suggest if present
+            if result.visualization_suggestion:
+                msg_entry["suggestion"] = result.visualization_suggestion
+                _render_suggestion(result.visualization_suggestion,
+                                   len(st.session_state.messages))
+
+        st.session_state.messages.append(msg_entry)
 
 
 main()
+

@@ -15,6 +15,16 @@ import pickle
 import pandas as pd
 import numpy as np
 
+try:
+    import plotly.express as px
+    import plotly.graph_objects as go
+    from plotly.subplots import make_subplots
+    import plotly.io as pio
+    _PLOTLY_AVAILABLE = True
+except ImportError:
+    px = go = make_subplots = pio = None
+    _PLOTLY_AVAILABLE = False
+
 # ---------------------------------------------------------------------------
 # Safe builtins whitelist (mirror of executor.py — kept in sync manually)
 # ---------------------------------------------------------------------------
@@ -110,11 +120,34 @@ def main() -> None:
         "np": np,
     }
 
+    # Add plotly to namespace if available
+    if _PLOTLY_AVAILABLE:
+        namespace["px"] = px
+        namespace["go"] = go
+        namespace["make_subplots"] = make_subplots
+
     try:
         exec(code, namespace)  # noqa: S102
         result_value = namespace.get("result", None)
         result_text  = _format_result(result_value, max_rows, max_chars)
-        print(json.dumps({"status": "ok", "result": result_text}))
+
+        # Detect and serialize Plotly figure if present
+        fig_value = namespace.get("fig", None)
+        chart_json = None
+        chart_description = namespace.get("chart_description", None)
+
+        if fig_value is not None and _PLOTLY_AVAILABLE:
+            try:
+                chart_json = pio.to_json(fig_value)
+            except Exception:
+                pass  # If serialization fails, just skip the chart
+
+        output = {"status": "ok", "result": result_text}
+        if chart_json:
+            output["chart"] = chart_json
+        if chart_description:
+            output["chart_description"] = str(chart_description)
+        print(json.dumps(output))
     except Exception as exc:
         print(json.dumps({"status": "error", "error": f"{type(exc).__name__}: {exc}"}))
 
