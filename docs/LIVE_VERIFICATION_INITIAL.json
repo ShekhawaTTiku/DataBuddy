@@ -1,0 +1,109 @@
+{
+  "date": "2026-10-22",
+  "timezone": "Asia/Kolkata",
+  "dataset": {
+    "filename": "Superstore.csv",
+    "bytes": 2287806,
+    "rows": 9994,
+    "columns": 21
+  },
+  "models": {
+    "code": "openai/gpt-oss-120b",
+    "memory": "gemini-3.5-flash-lite",
+    "routing": "ministral-8b-latest",
+    "explanation": "ministral-14b-latest",
+    "code_fallback": "mistral-medium-latest"
+  },
+  "expected": {
+    "sales": 2297200.86,
+    "profit": 286397.02,
+    "regional_sales": {
+      "Central": 501239.89,
+      "East": 678781.24,
+      "South": 391721.91,
+      "West": 725457.82
+    }
+  },
+  "checks": [
+    {
+      "exchange": 1,
+      "name": "remember_preference",
+      "passed": true,
+      "status": "success",
+      "memory_notice": "Conversation memory is using limited recent context. Gemini rejected the request or configured model. Check the model setting and try a smaller question.",
+      "has_computed_evidence": false,
+      "has_chart": false,
+      "seconds": 1.58,
+      "summary_chars": 0,
+      "notes": 1,
+      "recent_exchanges": 1
+    },
+    {
+      "exchange": 2,
+      "name": "total_sales",
+      "passed": true,
+      "status": "success",
+      "memory_notice": "Conversation memory is using limited recent context. Gemini rejected the request or configured model. Check the model setting and try a smaller question.",
+      "has_computed_evidence": true,
+      "has_chart": false,
+      "expected_value_found": true,
+      "seconds": 5.88,
+      "summary_chars": 0,
+      "notes": 2,
+      "recent_exchanges": 2
+    },
+    {
+      "exchange": 3,
+      "name": "explain_calculation",
+      "passed": true,
+      "status": "success",
+      "memory_notice": "Conversation memory is using limited recent context. Gemini rejected the request or configured model. Check the model setting and try a smaller question.",
+      "has_computed_evidence": false,
+      "has_chart": false,
+      "seconds": 3.36,
+      "summary_chars": 0,
+      "notes": 3,
+      "recent_exchanges": 3
+    }
+  ],
+  "provider_calls": [
+    {
+      "provider": "Gemini",
+      "outcome": "failed",
+      "safe_message": "Gemini rejected the request or configured model. Check the model setting and try a smaller question.",
+      "seconds": 1.0
+    },
+    {
+      "provider": "Mistral",
+      "outcome": "success",
+      "seconds": 1.28
+    },
+    {
+      "provider": "Groq",
+      "outcome": "success",
+      "seconds": 1.17
+    },
+    {
+      "provider": "Groq",
+      "outcome": "success",
+      "seconds": 1.16
+    },
+    {
+      "provider": "Gemini",
+      "outcome": "failed",
+      "safe_message": "Gemini rejected the request or configured model. Check the model setting and try a smaller question.",
+      "seconds": 0.92
+    },
+    {
+      "provider": "Mistral",
+      "outcome": "success",
+      "seconds": 2.42
+    },
+    {
+      "provider": "Gemini",
+      "outcome": "failed",
+      "safe_message": "Gemini rejected the request or configured model. Check the model setting and try a smaller question.",
+      "seconds": 0.92
+    }
+  ]
+}

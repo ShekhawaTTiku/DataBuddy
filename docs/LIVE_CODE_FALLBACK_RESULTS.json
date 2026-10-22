@@ -1,0 +1,21 @@
+{
+  "date": "2026-10-22",
+  "model": "ministral-14b-latest",
+  "checks": [
+    {
+      "role": "code",
+      "model": "ministral-14b-latest",
+      "passed": true,
+      "has_chart": false,
+      "seconds": 2.73
+    },
+    {
+      "role": "chart_code",
+      "model": "ministral-14b-latest",
+      "passed": true,
+      "has_chart": true,
+      "seconds": 4.34
+    }
+  ],
+  "all_passed": true
+}

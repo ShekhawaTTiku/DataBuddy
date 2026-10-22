@@ -1,0 +1,442 @@
+{
+  "date": "2026-10-22",
+  "timezone": "Asia/Kolkata",
+  "dataset": {
+    "filename": "Superstore.csv",
+    "bytes": 2287806,
+    "rows": 9994,
+    "columns": 21
+  },
+  "models": {
+    "code": "openai/gpt-oss-120b",
+    "memory": "gemini-3.5-flash-lite",
+    "routing": "ministral-8b-latest",
+    "explanation": "ministral-14b-latest",
+    "code_fallback": "mistral-medium-latest"
+  },
+  "expected": {
+    "sales": 2297200.86,
+    "profit": 286397.02,
+    "regional_sales": {
+      "Central": 501239.89,
+      "East": 678781.24,
+      "South": 391721.91,
+      "West": 725457.82
+    }
+  },
+  "checks": [
+    {
+      "exchange": 1,
+      "name": "remember_preference",
+      "passed": true,
+      "status": "success",
+      "memory_notice": null,
+      "has_computed_evidence": false,
+      "has_chart": false,
+      "seconds": 14.17,
+      "summary_chars": 0,
+      "notes": 1,
+      "recent_exchanges": 1
+    },
+    {
+      "exchange": 2,
+      "name": "total_sales",
+      "passed": true,
+      "status": "success",
+      "memory_notice": null,
+      "has_computed_evidence": true,
+      "has_chart": false,
+      "expected_value_found": true,
+      "seconds": 11.81,
+      "summary_chars": 0,
+      "notes": 2,
+      "recent_exchanges": 2
+    },
+    {
+      "exchange": 3,
+      "name": "explain_calculation",
+      "passed": true,
+      "status": "success",
+      "memory_notice": null,
+      "has_computed_evidence": false,
+      "has_chart": false,
+      "seconds": 12.25,
+      "summary_chars": 0,
+      "notes": 3,
+      "recent_exchanges": 3
+    },
+    {
+      "exchange": 4,
+      "name": "top_region",
+      "passed": true,
+      "status": "success",
+      "memory_notice": null,
+      "has_computed_evidence": true,
+      "has_chart": true,
+      "seconds": 14.8,
+      "summary_chars": 0,
+      "notes": 4,
+      "recent_exchanges": 4
+    },
+    {
+      "exchange": 5,
+      "name": "regional_chart",
+      "passed": true,
+      "status": "success",
+      "memory_notice": null,
+      "has_computed_evidence": true,
+      "has_chart": true,
+      "seconds": 14.16,
+      "summary_chars": 0,
+      "notes": 5,
+      "recent_exchanges": 5
+    },
+    {
+      "exchange": 6,
+      "name": "modify_chart",
+      "passed": true,
+      "status": "success",
+      "memory_notice": null,
+      "has_computed_evidence": true,
+      "has_chart": true,
+      "rollover_passed": true,
+      "preference_retained_in_summary": true,
+      "seconds": 22.52,
+      "summary_chars": 881,
+      "notes": 0,
+      "recent_exchanges": 6
+    },
+    {
+      "exchange": 7,
+      "name": "total_profit",
+      "passed": true,
+      "status": "success",
+      "memory_notice": null,
+      "has_computed_evidence": true,
+      "has_chart": false,
+      "expected_value_found": true,
+      "seconds": 19.5,
+      "summary_chars": 881,
+      "notes": 1,
+      "recent_exchanges": 6
+    },
+    {
+      "exchange": 8,
+      "name": "row_count",
+      "passed": true,
+      "status": "success",
+      "memory_notice": null,
+      "has_computed_evidence": true,
+      "has_chart": false,
+      "expected_value_found": true,
+      "seconds": 13.12,
+      "summary_chars": 881,
+      "notes": 2,
+      "recent_exchanges": 6
+    },
+    {
+      "exchange": 9,
+      "name": "category_sales",
+      "passed": true,
+      "status": "success",
+      "memory_notice": null,
+      "has_computed_evidence": true,
+      "has_chart": false,
+      "seconds": 15.58,
+      "summary_chars": 881,
+      "notes": 3,
+      "recent_exchanges": 6
+    },
+    {
+      "exchange": 10,
+      "name": "average_discount",
+      "passed": true,
+      "status": "success",
+      "memory_notice": null,
+      "has_computed_evidence": true,
+      "has_chart": false,
+      "expected_value_found": true,
+      "seconds": 18.88,
+      "summary_chars": 881,
+      "notes": 4,
+      "recent_exchanges": 6
+    },
+    {
+      "exchange": 11,
+      "name": "missing_sales",
+      "passed": true,
+      "status": "success",
+      "memory_notice": null,
+      "has_computed_evidence": true,
+      "has_chart": false,
+      "expected_value_found": true,
+      "seconds": 12.83,
+      "summary_chars": 881,
+      "notes": 5,
+      "recent_exchanges": 6
+    },
+    {
+      "exchange": 12,
+      "name": "recall_old_preference",
+      "passed": true,
+      "status": "success",
+      "memory_notice": null,
+      "has_computed_evidence": false,
+      "has_chart": false,
+      "rollover_passed": true,
+      "preference_retained_in_summary": true,
+      "seconds": 17.08,
+      "summary_chars": 994,
+      "notes": 0,
+      "recent_exchanges": 6
+    }
+  ],
+  "provider_calls": [
+    {
+      "provider": "Gemini",
+      "outcome": "failed",
+      "safe_message": "The request time limit was reached. Try a simpler question.",
+      "seconds": 12.06
+    },
+    {
+      "provider": "Mistral",
+      "outcome": "success",
+      "seconds": 1.28
+    },
+    {
+      "provider": "Mistral",
+      "outcome": "success",
+      "seconds": 2.14
+    },
+    {
+      "provider": "Groq",
+      "outcome": "success",
+      "seconds": 1.06
+    },
+    {
+      "provider": "Groq",
+      "outcome": "success",
+      "seconds": 1.01
+    },
+    {
+      "provider": "Gemini",
+      "outcome": "success",
+      "seconds": 6.59
+    },
+    {
+      "provider": "Mistral",
+      "outcome": "success",
+      "seconds": 8.59
+    },
+    {
+      "provider": "Gemini",
+      "outcome": "failed",
+      "safe_message": "Too little request time remains for Gemini; using memory fallback if available.",
+      "seconds": 2.05
+    },
+    {
+      "provider": "Mistral",
+      "outcome": "success",
+      "seconds": 1.61
+    },
+    {
+      "provider": "Mistral",
+      "outcome": "success",
+      "seconds": 1.59
+    },
+    {
+      "provider": "Groq",
+      "outcome": "success",
+      "seconds": 1.95
+    },
+    {
+      "provider": "Groq",
+      "outcome": "success",
+      "seconds": 2.14
+    },
+    {
+      "provider": "Gemini",
+      "outcome": "success",
+      "seconds": 7.77
+    },
+    {
+      "provider": "Mistral",
+      "outcome": "success",
+      "seconds": 1.41
+    },
+    {
+      "provider": "Groq",
+      "outcome": "success",
+      "seconds": 1.78
+    },
+    {
+      "provider": "Groq",
+      "outcome": "success",
+      "seconds": 1.16
+    },
+    {
+      "provider": "Gemini",
+      "outcome": "success",
+      "seconds": 8.55
+    },
+    {
+      "provider": "Mistral",
+      "outcome": "success",
+      "seconds": 1.36
+    },
+    {
+      "provider": "Groq",
+      "outcome": "success",
+      "seconds": 1.62
+    },
+    {
+      "provider": "Groq",
+      "outcome": "success",
+      "seconds": 1.56
+    },
+    {
+      "provider": "Gemini",
+      "outcome": "failed",
+      "safe_message": "The request time limit was reached. Try a simpler question.",
+      "seconds": 12.61
+    },
+    {
+      "provider": "Mistral",
+      "outcome": "success",
+      "seconds": 4.09
+    },
+    {
+      "provider": "Mistral",
+      "outcome": "success",
+      "seconds": 1.34
+    },
+    {
+      "provider": "Groq",
+      "outcome": "success",
+      "seconds": 1.0
+    },
+    {
+      "provider": "Groq",
+      "outcome": "success",
+      "seconds": 1.25
+    },
+    {
+      "provider": "Gemini",
+      "outcome": "failed",
+      "safe_message": "The request time limit was reached. Try a simpler question.",
+      "seconds": 12.09
+    },
+    {
+      "provider": "Mistral",
+      "outcome": "success",
+      "seconds": 2.91
+    },
+    {
+      "provider": "Mistral",
+      "outcome": "success",
+      "seconds": 1.75
+    },
+    {
+      "provider": "Groq",
+      "outcome": "success",
+      "seconds": 0.97
+    },
+    {
+      "provider": "Groq",
+      "outcome": "success",
+      "seconds": 1.27
+    },
+    {
+      "provider": "Gemini",
+      "outcome": "success",
+      "seconds": 8.2
+    },
+    {
+      "provider": "Mistral",
+      "outcome": "success",
+      "seconds": 1.39
+    },
+    {
+      "provider": "Groq",
+      "outcome": "success",
+      "seconds": 2.25
+    },
+    {
+      "provider": "Groq",
+      "outcome": "success",
+      "seconds": 3.22
+    },
+    {
+      "provider": "Gemini",
+      "outcome": "success",
+      "seconds": 7.78
+    },
+    {
+      "provider": "Mistral",
+      "outcome": "success",
+      "seconds": 1.44
+    },
+    {
+      "provider": "Groq",
+      "outcome": "success",
+      "seconds": 1.05
+    },
+    {
+      "provider": "Groq",
+      "outcome": "success",
+      "seconds": 1.77
+    },
+    {
+      "provider": "Gemini",
+      "outcome": "failed",
+      "safe_message": "The request time limit was reached. Try a simpler question.",
+      "seconds": 12.16
+    },
+    {
+      "provider": "Mistral",
+      "outcome": "success",
+      "seconds": 1.52
+    },
+    {
+      "provider": "Mistral",
+      "outcome": "success",
+      "seconds": 1.69
+    },
+    {
+      "provider": "Groq",
+      "outcome": "success",
+      "seconds": 1.62
+    },
+    {
+      "provider": "Groq",
+      "outcome": "success",
+      "seconds": 0.97
+    },
+    {
+      "provider": "Gemini",
+      "outcome": "success",
+      "seconds": 7.61
+    },
+    {
+      "provider": "Mistral",
+      "outcome": "success",
+      "seconds": 1.38
+    },
+    {
+      "provider": "Gemini",
+      "outcome": "failed",
+      "safe_message": "The request time limit was reached. Try a simpler question.",
+      "seconds": 12.14
+    },
+    {
+      "provider": "Mistral",
+      "outcome": "success",
+      "seconds": 3.56
+    }
+  ],
+  "reset_clears_memory": true,
+  "replacement_clears_memory": true,
+  "separate_session_is_empty": true,
+  "completed_exchanges": 12,
+  "all_checks_passed": true
+}

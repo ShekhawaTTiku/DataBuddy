@@ -1,0 +1,37 @@
+# Architecture
+
+## Current interfaces
+
+- web_app.py: the existing Streamlit upload/chat/chart interface and controls.
+- app.py: terminal loop, session commands and computed evidence display.
+- streamlit_support.py: allowlisted Streamlit Secrets bootstrap, called before importing core config.
+- ui_state.py: content fingerprints, transactional dataset replacement, bounded display history and clear/reset helpers. No Streamlit imports or saved uploads.
+
+## Reusable core
+
+- config.py: validated environment-backed settings; explicitly loads the project-local .env; no UI imports.
+- dataset_profiler.py / dataset_state.py: bounded memory loading from paths, bytes and binary streams; CSV/XLSX parsing, conservative types/dates, clipped profile and import notices.
+- databuddy.py: session coordinator. DataBuddy(source, filename=None).ask(question) returns AskResult with answer, optional chart/description/suggestion, result_text, code and status (success, partial, error, clarification).
+- conversation_state.py: bounded in-memory recent turns, six brief notes, one rolling paragraph, last successful analysis and five recent charts. Optional Gemini/Mistral summarization; no file save/load. Summaries are excluded from code-generation analysis context, which retains actual recent analysis and saved computed evidence.
+- message_handler.py: local clock handling, model routing with local fallback, conversation and prior-analysis explanation.
+- analyst.py and prompts/: bounded prompt assembly, code generation and evidence-based narration. Optional suggestions default off.
+- llm_clients.py: Groq/Gemini/Mistral SDK boundary, safe errors, per-attempt timeout, shared request budget, explicit token caps and role-specific transient fallback. Primary calls normally receive 60% of the remaining call budget when Mistral is configured. Gemini receives its required minimum 10-second deadline when enough time remains; otherwise it is skipped in favor of fallback. No SDK deadline exceeds the remaining overall budget.
+- executor.py: validation, trusted-parent DataFrame serialization, disposable working directory, subprocess timeout, output cap and result validation.
+- execution_policy.py: identical basic code rules used by parent and worker.
+- _runner.py: no application config or credential loading; permitted module imports, bounded print capture, computation, chart validation and actual plotted evidence.
+
+## Request flow
+
+1. Upload is checked and parsed in memory. The active dataset switches only after success.
+2. A question uses the current session context. Clock/remember answers are local; completed exchanges still receive optional memory updates.
+3. Router selects analysis, chart, chart modification, conversation or explanation; malformed/unavailable routing falls back to local rules.
+4. Generated code is validated and executed in a fresh bounded worker, using a copy of the session DataFrame.
+5. Successful evidence is preserved. Narration failure produces partial success; failed execution does not produce a fabricated narrative.
+6. Record the exchange once and optionally create one memory note. On the sixth exchange, briefing and merging with the five notes/old paragraph share one provider request, producing one bounded replacement paragraph. Memory has a 20-second default sub-budget within the existing overall request deadline; failures retain recent context and expose a safe notice.
+7. UI/CLI displays the answer, actual evidence and any memory limitation. UI charts use browser PNG export and opt-in HTML preparation.
+
+See [provider roles and memory](PROVIDERS_AND_MEMORY.md) for model choices, rollover examples and failure behavior.
+
+## Future frontend seam
+
+The core imports no Streamlit code. A later API can construct a session coordinator and serialize AskResult. This readiness work deliberately does not add HTTP endpoints, accounts, databases, queues or a replacement UI. Session ownership/authentication and hardened execution must be revisited if the audience expands beyond trusted demonstrations.

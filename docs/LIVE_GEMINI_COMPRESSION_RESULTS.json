@@ -1,0 +1,9 @@
+{
+  "date": "2026-10-22",
+  "provider": "Gemini",
+  "native_compression_passed": true,
+  "retains_preference": true,
+  "output_chars": 204,
+  "seconds": 12.48,
+  "scope": "Direct native compression with synthetic aggregate notes and a 30-second diagnostic request budget; normal app memory budget remains 20 seconds with Mistral fallback."
+}

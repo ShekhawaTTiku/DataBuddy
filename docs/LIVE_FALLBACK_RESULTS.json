@@ -1,0 +1,25 @@
+{
+  "date": "2026-10-22",
+  "method": "Temporarily omit the primary key in this process only; make real Mistral calls. No saved key/config changes.",
+  "checks": [
+    {
+      "role": "code",
+      "passed": false,
+      "safe_message": "Mistral's request or free-quota limit was reached. Wait and try again; no paid upgrade is required by this app.",
+      "seconds": 3.47
+    },
+    {
+      "role": "narration",
+      "model": "ministral-14b-latest",
+      "passed": true,
+      "seconds": 1.17
+    },
+    {
+      "role": "memory",
+      "model": "ministral-14b-latest",
+      "passed": true,
+      "seconds": 1.02
+    }
+  ],
+  "all_passed": false
+}
