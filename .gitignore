@@ -1,6 +1,12 @@
 .env
+.env.*
+!.env.example
+.streamlit/secrets.toml
 uploads/
 .databuddy_state/
+.pytest_cache/
+.coverage
+htmlcov/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
