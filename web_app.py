@@ -5,8 +5,7 @@ All question handling, routing, conversation memory, analysis generation,
 and LLM calls go through the existing DataBuddy pipeline.
 """
 
-import os
-import tempfile
+from html import escape
 from pathlib import Path
 
 import streamlit as st
@@ -30,7 +29,17 @@ _project_root = str(Path(__file__).resolve().parent)
 if _project_root not in sys.path:
     sys.path.insert(0, _project_root)
 
-from databuddy import DataBuddy, AskResult  # noqa: E402
+from streamlit_support import load_streamlit_secrets  # noqa: E402
+load_streamlit_secrets(st.secrets)
+
+import config  # noqa: E402
+from databuddy import AskResult  # noqa: E402
+from dataset_state import SUPPORTED_EXTENSIONS  # noqa: E402
+from llm_clients import ProviderError  # noqa: E402
+from ui_state import (  # noqa: E402
+    initialize_session, replace_dataset, reset_conversation, clear_dataset,
+    upload_fingerprint, append_message,
+)
 
 # ---------------------------------------------------------------------------
 # Plotly import (for rendering chart JSON)
@@ -44,7 +53,7 @@ except ImportError:
 # ---------------------------------------------------------------------------
 # Supported upload extensions
 # ---------------------------------------------------------------------------
-_SUPPORTED_EXTENSIONS = ["csv", "xlsx", "xls", "xlsm", "xlsb"]
+_SUPPORTED_EXTENSIONS = [ext.lstrip(".") for ext in SUPPORTED_EXTENSIONS]
 
 # ---------------------------------------------------------------------------
 # Premium CSS injection
@@ -311,326 +320,176 @@ hr {
 # ---------------------------------------------------------------------------
 
 def _check_api_keys() -> list[str]:
-    """Return a list of missing API key names (empty list means all present)."""
-    import config  # noqa: delayed import so dotenv is loaded first
-    missing = []
-    if not config.GROQ_API_KEY:
-        missing.append("GROQ_API_KEY")
-    if not config.MISTRAL_API_KEY:
-        missing.append("MISTRAL_API_KEY")
-    return missing
-
-
-def _save_uploaded_file(uploaded_file) -> str:
-    """Write the Streamlit UploadedFile to a temporary server-side path.
-
-    Returns the path string suitable for DataBuddy(path).
-    """
-    suffix = Path(uploaded_file.name).suffix
-    fd, tmp_path = tempfile.mkstemp(suffix=suffix, prefix="databuddy_")
-    try:
-        os.write(fd, uploaded_file.getbuffer())
-    finally:
-        os.close(fd)
-    return tmp_path
-
-
-def _cleanup_temp_file(path: str | None) -> None:
-    """Remove a temporary file if it exists."""
-    if path is None:
-        return
-    try:
-        p = Path(path)
-        if p.exists():
-            p.unlink()
-    except OSError:
-        pass
-
-
-def _init_session_state() -> None:
-    """Initialise session-state keys if they don't already exist."""
-    defaults = {
-        "buddy": None,             # DataBuddy instance
-        "dataset_name": None,      # filename of current dataset
-        "dataset_info": None,      # dict with rows, cols, preview text
-        "messages": [],            # UI chat history [{role, content, chart_json?, suggestion?}]
-        "temp_path": None,         # path to temporary uploaded file
-    }
-    for key, value in defaults.items():
-        if key not in st.session_state:
-            st.session_state[key] = value
+    # Groq alone works through local routing. Mistral alone supports fallback.
+    return [] if (config.GROQ_API_KEY or config.MISTRAL_API_KEY) else ["GROQ_API_KEY or MISTRAL_API_KEY"]
 
 
 def _load_dataset(uploaded_file) -> None:
-    """Create a new DataBuddy instance for the uploaded file.
-
-    Handles temp-file lifecycle and session-state updates.
-    """
-    # Clean up previous temp file
-    _cleanup_temp_file(st.session_state.temp_path)
-
-    tmp_path = _save_uploaded_file(uploaded_file)
-    st.session_state.temp_path = tmp_path
-
-    buddy = DataBuddy(tmp_path)
-    profile = buddy.dataset
-
-    st.session_state.buddy = buddy
-    st.session_state.dataset_name = uploaded_file.name
-    st.session_state.dataset_info = {
-        "rows": len(profile.df),
-        "cols": len(profile.df.columns),
-        "columns": [str(c) for c in profile.df.columns],
-        "dtypes": {str(c): str(profile.df[c].dtype) for c in profile.df.columns},
-        "missing": int(profile.df.isna().sum().sum()),
-        "preview": profile.df.head(5),
-    }
-    # Clear UI chat when dataset changes
-    st.session_state.messages = []
+    if uploaded_file.size > config.MAX_UPLOAD_BYTES:
+        raise ValueError("This file is larger than the 20 MB upload limit.")
+    replace_dataset(st.session_state, uploaded_file.name, uploaded_file.getvalue())
 
 
 def _render_chart(chart_json: str, msg_index: int) -> None:
-    """Render a Plotly chart from JSON and provide an export download button."""
-    if not _PLOTLY_AVAILABLE or not chart_json:
+    """Use browser PNG export; prepare HTML only when requested."""
+    if not _PLOTLY_AVAILABLE:
+        st.warning("Chart display is unavailable. Install the project requirements.")
         return
-
     try:
         fig = pio.from_json(chart_json)
-        st.plotly_chart(fig, use_container_width=True, theme="streamlit",
-                        key=f"chart_{msg_index}")
-
-        # Export button — generate PNG bytes for download
-        try:
-            png_bytes = fig.to_image(format="png", width=1200, height=600, scale=2)
-            st.download_button(
-                label="📥 Export as PNG",
-                data=png_bytes,
-                file_name="databuddy_chart.png",
-                mime="image/png",
-                key=f"export_{msg_index}",
-            )
-        except Exception:
-            # kaleido may not be installed — offer HTML export instead
-            html_str = pio.to_html(fig, include_plotlyjs="cdn", full_html=True)
-            st.download_button(
-                label="📥 Export as HTML",
-                data=html_str,
-                file_name="databuddy_chart.html",
-                mime="text/html",
-                key=f"export_{msg_index}",
-            )
-    except Exception as e:
-        st.warning(f"Could not render chart: {e}", icon="⚠️")
+        st.plotly_chart(
+            fig, width="stretch", theme="streamlit", key=f"chart_{msg_index}",
+            alt="Analysis chart. Use the computed evidence below for the plotted values.",
+            config={"displaylogo": False, "toImageButtonOptions": {
+                "format": "png", "filename": "databuddy_chart", "width": 1200,
+                "height": 600, "scale": 2,
+            }},
+        )
+        st.caption("Use the chart's camera button for PNG. Prepare HTML for an interactive download.")
+        if st.button("Prepare HTML download", key=f"prepare_export_{msg_index}"):
+            # CDN keeps the file small. No local browser or image renderer is needed.
+            html = pio.to_html(fig, include_plotlyjs="cdn", full_html=True)
+            st.download_button("Download interactive HTML", data=html,
+                               file_name="databuddy_chart.html", mime="text/html",
+                               key=f"export_{msg_index}", on_click="ignore")
+            st.caption("The HTML download needs internet to load Plotly. It includes the plotted data.")
+    except Exception:
+        st.warning("This chart could not be displayed. Your computed answer is still available.")
 
 
 def _render_suggestion(suggestion: str, msg_index: int) -> None:
-    """Render a visualization suggestion banner."""
     if suggestion:
-        st.markdown(
-            f'<div class="viz-suggestion">💡 {suggestion}</div>',
-            unsafe_allow_html=True,
-        )
+        st.markdown(f'<div class="viz-suggestion">💡 {escape(suggestion)}</div>', unsafe_allow_html=True)
 
 
-# ---------------------------------------------------------------------------
-# Main UI
-# ---------------------------------------------------------------------------
+def _render_evidence(msg: dict, index: int) -> None:
+    if msg.get("result_text") or msg.get("code"):
+        with st.expander("Computed evidence and calculation"):
+            if msg.get("result_text"):
+                st.text(msg["result_text"])
+            if msg.get("code"):
+                st.code(msg["code"], language="python")
+
 
 def main() -> None:
-    _init_session_state()
-
-    # Inject custom CSS
+    initialize_session(st.session_state)
     st.markdown(_CUSTOM_CSS, unsafe_allow_html=True)
-
-    # --- Gradient Header ---
     st.markdown(
-        '<div class="hero-container">'
-        '  <div class="hero-title">DataBuddy</div>'
-        '  <div class="hero-subtitle">Your AI-powered conversational data analyst</div>'
-        '</div>',
+        '<div class="hero-container"><div class="hero-title">DataBuddy</div>'
+        '<div class="hero-subtitle">Your AI-powered conversational data analyst</div></div>',
         unsafe_allow_html=True,
     )
-
-    # --- API key check ---
     missing_keys = _check_api_keys()
     if missing_keys:
-        st.warning(
-            f"Missing API key(s): **{', '.join(missing_keys)}**. "
-            "Set them in **Settings → Secrets** (Streamlit Cloud) or your `.env` file.",
-            icon="🔑",
-        )
-
-    # --- Sidebar: upload & controls ---
+        st.warning("Add a Groq or Mistral API key in local .env or Streamlit Secrets to enable analysis.", icon="🔑")
     with st.sidebar:
         st.markdown("### 📂 Dataset")
+        st.caption("CSV or XLSX · maximum 20 MB. Demo data only.")
         uploaded_file = st.file_uploader(
-            "Upload a dataset",
-            type=_SUPPORTED_EXTENSIONS,
-            help="Supported: CSV, XLSX, XLS, XLSM, XLSB (up to 50 MB)",
+            "Upload a dataset", type=_SUPPORTED_EXTENSIONS,
+            max_upload_size=config.MAX_UPLOAD_MB,
+            help="CSV is the main demo format. XLSX workbooks use the first sheet. No file or chat is saved for later sessions.",
+            key=f"dataset_upload_{st.session_state.uploader_generation}",
             label_visibility="collapsed",
         )
-
         if uploaded_file is not None:
-            # Detect dataset change (new file or different file name/size)
-            needs_load = (
-                st.session_state.buddy is None
-                or st.session_state.dataset_name != uploaded_file.name
-            )
-
-            if needs_load:
-                try:
-                    with st.spinner("Analyzing your dataset…"):
-                        _load_dataset(uploaded_file)
-                    st.toast(f"✅ Loaded **{uploaded_file.name}**", icon="📊")
-                except (FileNotFoundError, ValueError) as e:
-                    st.error(f"Could not load file: {e}", icon="❌")
-                except Exception as e:
-                    st.error(
-                        f"Unexpected error: {type(e).__name__}: {e}",
-                        icon="❌",
-                    )
-
-        # --- Dataset info card ---
-        if st.session_state.dataset_info:
-            info = st.session_state.dataset_info
+            fingerprint = upload_fingerprint(uploaded_file.name, uploaded_file.getbuffer())
+            if fingerprint != st.session_state.dataset_fingerprint:
+                if fingerprint != st.session_state.rejected_fingerprint:
+                    try:
+                        with st.spinner("Reading and checking your dataset…"):
+                            _load_dataset(uploaded_file)
+                        st.toast("Dataset loaded. The conversation is ready.")
+                    except ValueError as error:
+                        st.session_state.rejected_fingerprint = fingerprint
+                        st.session_state.rejected_error = str(error)
+                    except Exception:
+                        st.session_state.rejected_fingerprint = fingerprint
+                        st.session_state.rejected_error = "This file could not be loaded. Try a valid CSV or XLSX file."
+                if fingerprint == st.session_state.rejected_fingerprint:
+                    st.error(st.session_state.rejected_error)
+                    if st.session_state.buddy is not None:
+                        st.caption("Your previous dataset is still active.")
+        info = st.session_state.dataset_info
+        if info:
             st.markdown("---")
-
-            # File name and quick stats as HTML card
-            stats_html = (
-                '<div class="dataset-card">'
-                f'  <div class="dataset-filename">📄 {st.session_state.dataset_name}</div>'
-                f'  <span class="dataset-stat"><strong>{info["rows"]:,}</strong> rows</span>'
-                f'  <span class="dataset-stat"><strong>{info["cols"]}</strong> columns</span>'
-                f'  <span class="dataset-stat"><strong>{info["missing"]:,}</strong> missing</span>'
-                '</div>'
-            )
-            st.markdown(stats_html, unsafe_allow_html=True)
-
-            with st.expander("📋 Column details"):
-                for col_name in info["columns"]:
-                    dtype = info["dtypes"].get(col_name, "")
-                    st.markdown(
-                        f"<span style='color:#FAFAFA;font-size:0.85rem;'>`{col_name}`</span>"
-                        f" <span style='color:#6B7280;font-size:0.75rem;'>({dtype})</span>",
-                        unsafe_allow_html=True,
-                    )
-
-            with st.expander("👀 Preview (first 5 rows)"):
-                st.dataframe(
-                    info["preview"],
-                    use_container_width=True,
-                    hide_index=True,
-                )
-
-        # --- Chart memory indicator ---
-        if (st.session_state.buddy is not None
-                and st.session_state.buddy.conversation.has_chart_context):
-            chart_count = len(st.session_state.buddy.conversation.chart_history)
             st.markdown(
-                f'<div class="chart-memory-badge">'
-                f'📊 <strong>{chart_count}</strong> chart{"s" if chart_count != 1 else ""} '
-                f'in memory — ask me to modify any of them!'
-                f'</div>',
+                '<div class="dataset-card">'
+                f'<div class="dataset-filename">📄 {escape(st.session_state.dataset_name)}</div>'
+                f'<span class="dataset-stat"><strong>{info["rows"]:,}</strong> rows</span>'
+                f'<span class="dataset-stat"><strong>{info["cols"]}</strong> columns</span>'
+                f'<span class="dataset-stat"><strong>{info["missing"]:,}</strong> missing</span></div>',
                 unsafe_allow_html=True,
             )
-
-        # --- Reset & About ---
-        if st.session_state.buddy is not None:
+            for warning in info.get("warnings", []):
+                st.warning(warning)
+            with st.expander("📋 Column details"):
+                st.dataframe({"Column": info["columns"], "Type": [info["dtypes"][c] for c in info["columns"]]},
+                             hide_index=True, width="stretch", alt="Detected dataset columns and types")
+            with st.expander("👀 Preview (first 5 rows)"):
+                st.dataframe(info["preview"], width="stretch", hide_index=True,
+                             alt="First five rows of the active dataset")
+        buddy = st.session_state.buddy
+        if buddy is not None:
+            if buddy.conversation.has_chart_context:
+                st.caption(f"{len(buddy.conversation.chart_history)} recent chart(s) available for follow-up changes.")
             st.markdown("---")
-            if st.button("🔄 Reset conversation", use_container_width=True):
-                st.session_state.buddy.conversation.clear()
-                st.session_state.messages = []
-                st.toast("Conversation reset!", icon="🔄")
-
-        # Sidebar footer
-        st.markdown(
-            '<div class="sidebar-badge">'
-            'Built with ❤️ using Streamlit'
-            '</div>',
-            unsafe_allow_html=True,
-        )
-
-    # --- Main area: Chat interface ---
+            if st.button("🔄 Reset conversation", width="stretch"):
+                reset_conversation(st.session_state)
+                st.toast("Conversation and chart context cleared. Dataset kept.")
+            if st.button("Remove dataset and clear session", width="stretch"):
+                clear_dataset(st.session_state)
+                st.rerun()
+        st.caption("Session only. Refreshing or disconnecting may clear your data; closing the tab does not guarantee immediate server memory release.")
+        st.caption("Samples, statistics, results and chat context may be sent to the configured model providers. Use non-sensitive demo data.")
+        st.caption("Built with Streamlit · trusted personal demonstration")
     if st.session_state.buddy is None:
-        # Welcome card
         st.markdown(
-            '<div class="welcome-card">'
-            '  <div class="welcome-icon">📊</div>'
-            '  <div class="welcome-heading">Welcome to DataBuddy</div>'
-            '  <div class="welcome-text">'
-            '    Upload a CSV or Excel file in the sidebar to get started.<br>'
-            '    Then ask questions about your data in plain English — '
-            '    DataBuddy will analyze it and create interactive charts for you.'
-            '  </div>'
-            '</div>',
-            unsafe_allow_html=True,
+            '<div class="welcome-card"><div class="welcome-icon">📊</div>'
+            '<div class="welcome-heading">Welcome to DataBuddy</div>'
+            '<div class="welcome-text">Upload a CSV or XLSX file in the sidebar, then ask questions '
+            'about its data or request an interactive chart.</div></div>', unsafe_allow_html=True,
         )
-
-        # Suggestion chips
-        st.markdown("")
-        cols = st.columns(4)
-        suggestions = [
-            ("📈", "Trend analysis"),
-            ("🔍", "Find outliers"),
-            ("📊", "Visualize data"),
-            ("🔗", "Correlations"),
-        ]
-        for col, (icon, text) in zip(cols, suggestions):
-            col.markdown(
-                f"<div style='text-align:center;padding:0.8rem;background:rgba(108,99,255,0.06);"
-                f"border:1px solid rgba(108,99,255,0.12);border-radius:10px;'>"
-                f"<span style='font-size:1.5rem;'>{icon}</span><br>"
-                f"<span style='font-size:0.8rem;color:#9CA3AF;'>{text}</span></div>",
-                unsafe_allow_html=True,
-            )
         return
-
-    # Render existing chat messages
+    if len(st.session_state.messages) >= config.MAX_UI_MESSAGES:
+        st.caption("Showing the most recent messages to keep this demo lightweight.")
     for i, msg in enumerate(st.session_state.messages):
         with st.chat_message(msg["role"]):
-            # Render chart first (if present), then text
-            if msg.get("chart_json") and msg["role"] == "assistant":
-                _render_chart(msg["chart_json"], i)
+            if msg.get("chart_json"):
+                _render_chart(msg["chart_json"], msg.get("id", str(i)))
             st.markdown(msg["content"])
-            # Render visualization suggestion (if present)
-            if msg.get("suggestion") and msg["role"] == "assistant":
+            if msg.get("memory_notice"):
+                st.caption(msg["memory_notice"])
+            if msg.get("suggestion"):
                 _render_suggestion(msg["suggestion"], i)
-
-    # Chat input
-    if question := st.chat_input("Ask anything about your data…"):
-        # Display user message
-        st.session_state.messages.append({"role": "user", "content": question})
+            _render_evidence(msg, i)
+    question = st.chat_input("Ask anything about your data…", disabled=bool(missing_keys),
+                             max_chars=config.MAX_QUESTION_CHARS)
+    if question:
+        append_message(st.session_state, {"role": "user", "content": question})
         with st.chat_message("user"):
             st.markdown(question)
-
-        # Get answer from existing backend
         with st.chat_message("assistant"):
-            with st.spinner("Analyzing…"):
+            with st.spinner("Analyzing your question…"):
                 try:
                     result = st.session_state.buddy.ask(question)
-                except Exception as e:
-                    result = AskResult(answer=f"⚠️ An error occurred: {type(e).__name__}: {e}")
-
-            # Build the message entry for session state
-            msg_entry = {"role": "assistant", "content": result.answer}
-
-            # Render chart if present
+                except ProviderError as error:
+                    result = AskResult(answer=str(error), status="error")
+                except Exception:
+                    result = AskResult(answer="This request could not be completed. Your dataset is still loaded; try a simpler question.", status="error")
+            msg = {"role": "assistant", "content": result.answer,
+                   "chart_json": result.chart_json, "suggestion": result.visualization_suggestion,
+                   "result_text": result.result_text, "code": result.code,
+                   "memory_notice": result.memory_notice}
+            append_message(st.session_state, msg)
             if result.chart_json:
-                msg_entry["chart_json"] = result.chart_json
-                msg_idx = len(st.session_state.messages)
-                _render_chart(result.chart_json, msg_idx)
-
-            # Render text answer
+                _render_chart(result.chart_json, msg["id"])
             st.markdown(result.answer)
-
-            # Render auto-suggest if present
+            if result.memory_notice:
+                st.caption(result.memory_notice)
             if result.visualization_suggestion:
-                msg_entry["suggestion"] = result.visualization_suggestion
-                _render_suggestion(result.visualization_suggestion,
-                                   len(st.session_state.messages))
-
-        st.session_state.messages.append(msg_entry)
+                _render_suggestion(result.visualization_suggestion, len(st.session_state.messages))
+            _render_evidence(msg, len(st.session_state.messages))
 
 
 main()
-
