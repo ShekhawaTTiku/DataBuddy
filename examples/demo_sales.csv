@@ -1,0 +1,5 @@
+date,region,product,sales,units
+2026-01-01,North,Notebook,100,2
+2026-01-02,South,Pen,200,4
+2026-02-01,North,Pen,300,6
+2026-02-02,South,Notebook,400,8
