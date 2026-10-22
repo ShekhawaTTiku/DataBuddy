@@ -1,188 +1,102 @@
+"""Construct bounded analysis prompts; provider calls live in llm_clients."""
 import re
 from pathlib import Path
 
 import config
-from llm_clients import call_analysis_llm
+from llm_clients import call_analysis_llm, call_narration_llm
 from executor import ExecutionResult
 
 _PROMPTS_DIR = Path(__file__).parent / "prompts"
+_PLACEHOLDER = re.compile(r"\{\{(\w+)\}\}")
 
 
 def _load_template(filename: str) -> str:
-    """Load a prompt template from the prompts/ directory."""
     return (_PROMPTS_DIR / filename).read_text(encoding="utf-8")
 
 
+def _prompt(filename: str, **values: str) -> str:
+    # Substitute the template once, so placeholder-shaped dataset text remains data.
+    template = _load_template(filename)
+    remaining = max(0, config.MAX_PROMPT_CHARS - len(template))
+    bounded: dict[str, str] = {}
+    priority = ("question", "result", "execution_status", "chart_description", "profile",
+                "code", "previous_attempt", "conversation", "chart_context", "columns")
+    for key in priority:
+        if key not in values:
+            continue
+        count = max(1, len(re.findall(r"\{\{" + key + r"\}\}", template)))
+        text = str(values[key])
+        allowed = remaining // count
+        bounded[key] = text if len(text) <= allowed else text[:max(0, allowed - 15)] + "... [truncated]"[:allowed]
+        remaining -= len(bounded[key]) * count
+    return _PLACEHOLDER.sub(lambda m: bounded.get(m.group(1), ""), template)
+
+
 def _strip_code_fences(text: str) -> str:
-    """Remove markdown code fences from the LLM reply, if present."""
     text = text.strip()
-    # Match ```python ... ``` or ``` ... ```
-    match = re.search(r"```(?:\w*)\n(.*?)```", text, re.DOTALL)
-    if match:
-        return match.group(1).strip()
-    return text
+    match = re.search(r"\A\x60{3}(?:\w*)\s*\n(.*?)\n?\x60{3}\s*\Z", text, re.DOTALL)
+    return match.group(1).strip() if match else text
+
+
+def _previous(previous_attempt: dict | None) -> str:
+    if not previous_attempt:
+        return ""
+    return (f"Code:\n{previous_attempt.get('code', '')[:config.MAX_CODE_CHARS]}\n\n"
+            f"Error:\n{str(previous_attempt.get('error', ''))[:1000]}")
+
+
+def _complete(prompt: str, label: str) -> str:
+    if config.DEBUG:
+        print(f"[analysis] operation={label}; prompt_chars={len(prompt)}")
+    return (call_analysis_llm if label in {"generate_code", "generate_chart"} else call_narration_llm)(prompt)
 
 
 def generate_code(profile: str, question: str, previous_attempt: dict | None = None,
                   conversation_text: str = "None yet.") -> str:
-    """Ask the LLM to generate pandas code that answers the user's question.
-
-    Args:
-        profile: The compact text profile of the dataset.
-        question: The user's natural-language question.
-        previous_attempt: If provided, a dict with keys 'code' and 'error'
-                          from the previous failed attempt.
-
-    Returns:
-        The generated Python code as a string.
-    """
-    template = _load_template("code_generation.txt")
-
-    if previous_attempt is not None:
-        prev_text = (
-            f"Code:\n{previous_attempt['code']}\n\n"
-            f"Error:\n{previous_attempt['error']}"
-        )
-    else:
-        prev_text = ""
-
-    prompt = template.replace("{{profile}}", profile)
-    prompt = prompt.replace("{{conversation}}", conversation_text)
-    prompt = prompt.replace("{{previous_attempt}}", prev_text)
-    prompt = prompt.replace("{{question}}", question)
-
-    if config.DEBUG:
-        print(f"\n[DEBUG] Code-generation prompt:\n{prompt}")
-    response = call_analysis_llm(prompt)
-    return _strip_code_fences(response)
+    prompt = _prompt("code_generation.txt", profile=profile, question=question,
+                     conversation=conversation_text[:config.MAX_CONTEXT_CHARS],
+                     previous_attempt=_previous(previous_attempt))
+    return _strip_code_fences(_complete(prompt, "generate_code"))
 
 
-def generate_chart_code(profile: str, question: str,
-                        previous_attempt: dict | None = None,
+def generate_chart_code(profile: str, question: str, previous_attempt: dict | None = None,
                         conversation_text: str = "None yet.",
                         chart_context: str = "None yet.") -> str:
-    """Ask the LLM to generate Plotly chart code.
-
-    Args:
-        profile: The compact text profile of the dataset.
-        question: The user's natural-language question.
-        previous_attempt: If provided, a dict with keys 'code' and 'error'
-                          from the previous failed attempt.
-        conversation_text: Recent analysis context.
-        chart_context: Previous chart context for follow-up modifications.
-
-    Returns:
-        The generated Python code as a string.
-    """
-    template = _load_template("chart_generation.txt")
-
-    if previous_attempt is not None:
-        prev_text = (
-            f"Code:\n{previous_attempt['code']}\n\n"
-            f"Error:\n{previous_attempt['error']}"
-        )
-    else:
-        prev_text = ""
-
-    prompt = template.replace("{{profile}}", profile)
-    prompt = prompt.replace("{{conversation}}", conversation_text)
-    prompt = prompt.replace("{{chart_context}}", chart_context)
-    prompt = prompt.replace("{{previous_attempt}}", prev_text)
-    prompt = prompt.replace("{{question}}", question)
-
-    if config.DEBUG:
-        print(f"\n[DEBUG] Chart-generation prompt:\n{prompt}")
-    response = call_analysis_llm(prompt)
-    return _strip_code_fences(response)
+    prompt = _prompt("chart_generation.txt", profile=profile, question=question,
+                     conversation=conversation_text[:config.MAX_CONTEXT_CHARS // 2],
+                     chart_context=chart_context[:config.MAX_CONTEXT_CHARS // 2],
+                     previous_attempt=_previous(previous_attempt))
+    return _strip_code_fences(_complete(prompt, "generate_chart"))
 
 
 def write_answer(profile: str, question: str, code: str, execution: ExecutionResult,
                  conversation_text: str = "None yet.") -> str:
-    """Ask the LLM to explain the execution result in plain language.
-
-    Args:
-        profile: The compact text profile of the dataset.
-        question: The user's natural-language question.
-        code: The generated pandas code that was executed.
-        execution: The ExecutionResult from executor.run_code().
-
-    Returns:
-        A plain-language answer as a string.
-    """
-    template = _load_template("final_response.txt")
-
-    execution_status = "Success" if execution.ok else "Failed"
-    result_text = execution.result_text if execution.result_text is not None else ""
-    if not execution.ok and execution.error:
-        result_text = execution.error
-
-    prompt = template.replace("{{question}}", question)
-    prompt = prompt.replace("{{profile}}", profile)
-    prompt = prompt.replace("{{conversation}}", conversation_text)
-    prompt = prompt.replace("{{code}}", code)
-    prompt = prompt.replace("{{execution_status}}", execution_status)
-    prompt = prompt.replace("{{result}}", result_text)
-
-    if config.DEBUG:
-        print(f"\n[DEBUG] Final-response prompt:\n{prompt}")
-    return call_analysis_llm(prompt)
+    if not execution.ok:
+        raise ValueError("Failed execution cannot be described as a completed analysis.")
+    prompt = _prompt("final_response.txt", question=question, profile=profile,
+                     conversation=conversation_text[:config.MAX_CONTEXT_CHARS // 2],
+                     code=code[:config.MAX_CODE_CHARS], execution_status="Success",
+                     result=execution.result_text or "No computed result.")
+    return _complete(prompt, "write_answer")
 
 
-def write_chart_insight(profile: str, question: str, code: str,
-                        execution: ExecutionResult) -> str:
-    """Generate a brief narrative insight to accompany a chart.
-
-    Args:
-        profile: The compact text profile of the dataset.
-        question: The user's natural-language question.
-        code: The chart generation code that was executed.
-        execution: The ExecutionResult with chart data.
-
-    Returns:
-        A brief narrative insight as a string.
-    """
-    template = _load_template("chart_insight.txt")
-
-    chart_description = execution.chart_description or "Chart"
-    result_text = execution.result_text if execution.result_text is not None else "N/A"
-
-    prompt = template.replace("{{question}}", question)
-    prompt = prompt.replace("{{profile}}", profile)
-    prompt = prompt.replace("{{chart_description}}", chart_description)
-    prompt = prompt.replace("{{code}}", code)
-    prompt = prompt.replace("{{result}}", result_text)
-
-    if config.DEBUG:
-        print(f"\n[DEBUG] Chart-insight prompt:\n{prompt}")
-    return call_analysis_llm(prompt)
+def write_chart_insight(profile: str, question: str, code: str, execution: ExecutionResult) -> str:
+    if not execution.ok or not execution.chart_json:
+        raise ValueError("A chart insight requires a successfully generated chart.")
+    # The runner supplies a bounded summary of actual plotted values.
+    if execution.result_text in {None, "", "None"}:
+        return "The chart is ready. No numerical summary was available for a reliable written interpretation."
+    prompt = _prompt("chart_insight.txt", question=question,
+                     chart_description=execution.chart_description or "Chart",
+                     result=execution.result_text)
+    return _complete(prompt, "chart_insight")
 
 
-def suggest_visualization(question: str, result_text: str,
-                          columns: list[str]) -> str | None:
-    """Suggest a follow-up visualization after a text-only analysis.
-
-    Args:
-        question: The user's original question.
-        result_text: The analysis result text.
-        columns: List of dataset column names.
-
-    Returns:
-        A suggestion string, or None if no suggestion is appropriate.
-    """
-    template = _load_template("chart_suggestion.txt")
-
-    prompt = template.replace("{{question}}", question)
-    prompt = prompt.replace("{{result}}", result_text or "")
-    prompt = prompt.replace("{{columns}}", ", ".join(columns))
-
-    if config.DEBUG:
-        print(f"\n[DEBUG] Chart-suggestion prompt:\n{prompt}")
+def suggest_visualization(question: str, result_text: str, columns: list[str]) -> str | None:
+    prompt = _prompt("chart_suggestion.txt", question=question, result=result_text or "",
+                     columns=", ".join(columns)[:config.MAX_CONTEXT_CHARS])
     try:
-        response = call_analysis_llm(prompt)
-        response = response.strip()
-        if response == "NO_SUGGESTION" or not response:
-            return None
-        return response
+        response = _complete(prompt, "suggest_chart").strip()
+        return response if response and response != "NO_SUGGESTION" else None
     except Exception:
         return None
-

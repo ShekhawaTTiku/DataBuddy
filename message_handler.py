@@ -6,7 +6,7 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 import config
-from llm_clients import call_conversation_llm, call_explanation_llm, classify_message
+from llm_clients import ProviderError, ProviderUnavailableError, call_conversation_llm, call_explanation_llm, classify_message
 
 _PROMPTS_DIR = Path(__file__).parent / "prompts"
 _TIME_QUERY = re.compile(
@@ -29,29 +29,40 @@ _VISUALIZATION_TERMS = re.compile(
     r"show me a .*(chart|graph|plot)|draw|diagram)\b", re.I)
 _CHART_MODIFY_TERMS = re.compile(
     r"\b(change the (color|chart|type|title|label)|make it (horizontal|vertical)|"
-    r"add a trend|switch to|update the (chart|title|axis)|rotate|flip)\b", re.I)
+    r"add a trend|switch to (?:a )?(?:bar|line|pie|scatter|area|box)|"
+    r"update the (chart|title|axis)|rotate (?:it|the chart)|flip (?:it|the chart))\b", re.I)
 _FOLLOWUP = re.compile(r"\b(what about|second highest|second-highest|same for|and for|why|instead|those|that one)\b", re.I)
+
+
+def _fill(template: str, **values: str) -> str:
+    """Replace known fields once, without interpreting placeholder-shaped user data."""
+    return re.sub(r"\{\{(\w+)\}\}", lambda match: str(values.get(match.group(1), "")), template)
 
 
 def route_message(question: str, columns: list[str], conversation: str,
                   has_analysis_context: bool, has_chart_context: bool = False) -> dict[str, str]:
-    """Use the third LLM to classify; fall back to local rules if it is unavailable."""
+    """Use Mistral to classify; local rules cover outages or malformed replies."""
     if _TIME_QUERY.search(question):
         return {"route": "clock", "reply": ""}
+    if has_analysis_context and _EXPLANATION_QUERY.search(question):
+        return {"route": "explain_analysis", "reply": ""}
 
     template = (_PROMPTS_DIR / "request_router.txt").read_text(encoding="utf-8")
-    prompt = template.replace("{{columns}}", ", ".join(columns))
-    prompt = prompt.replace("{{conversation}}", conversation or "None yet.")
-    prompt = prompt.replace("{{question}}", question)
+    prompt = _fill(template, columns=", ".join(columns)[:config.MAX_CONTEXT_CHARS],
+                   conversation=(conversation or "None yet.")[:config.MAX_CONTEXT_CHARS],
+                   question=question, has_analysis=str(has_analysis_context), has_chart=str(has_chart_context))
     try:
         result = json.loads(classify_message(prompt))
         route = result.get("route")
         if route in {"analysis", "conversation", "explain_analysis", "clock",
                      "visualization", "modify_chart"}:
-            return {"route": route, "reply": str(result.get("reply") or "")}
+            return {"route": route, "reply": str(result.get("reply") or "")[:config.MAX_MESSAGE_CHARS]}
+    except ProviderError as exc:
+        if not isinstance(exc, ProviderUnavailableError):
+            raise
     except Exception as exc:
         if config.DEBUG:
-            print(f"[router] LLM classification unavailable; using local fallback: {exc}")
+            print(f"[router] local_fallback=True; error_type={type(exc).__name__}")
 
     lowered = question.casefold()
 
@@ -63,12 +74,14 @@ def route_message(question: str, columns: list[str], conversation: str,
     if _VISUALIZATION_TERMS.search(question):
         return {"route": "visualization", "reply": ""}
 
-    if has_analysis_context and _FOLLOWUP.search(question):
-        return {"route": "analysis", "reply": ""}
+    if _EXPLANATION_QUERY.search(question) and has_analysis_context:
+        return {"route": "explain_analysis", "reply": ""}
     if _CONVERSATION_EXPLANATION_QUERY.search(question):
         return {"route": "conversation", "reply": ""}
     if _EXPLANATION_QUERY.search(question):
         return {"route": "explain_analysis", "reply": ""}
+    if has_analysis_context and _FOLLOWUP.search(question):
+        return {"route": "analysis", "reply": ""}
     if any(str(column).casefold() in lowered for column in columns) or _ANALYSIS_TERMS.search(question):
         return {"route": "analysis", "reply": ""}
     return {"route": "conversation", "reply": ""}
@@ -76,8 +89,7 @@ def route_message(question: str, columns: list[str], conversation: str,
 
 def answer_conversation(question: str, conversation: str) -> str:
     template = (_PROMPTS_DIR / "conversation_response.txt").read_text(encoding="utf-8")
-    prompt = template.replace("{{conversation}}", conversation or "None yet.")
-    prompt = prompt.replace("{{question}}", question)
+    prompt = _fill(template, conversation=(conversation or "None yet.")[:config.MAX_CONTEXT_CHARS], question=question)
     return call_conversation_llm(prompt)
 
 
@@ -85,11 +97,11 @@ def answer_explanation(question: str, last_analysis: dict | None) -> str:
     if not last_analysis:
         return "I don’t have a previous successful analysis to explain yet. Ask a data question first."
     template = (_PROMPTS_DIR / "analysis_explanation.txt").read_text(encoding="utf-8")
-    prompt = template.replace("{{question}}", question)
-    prompt = prompt.replace("{{analysis_question}}", str(last_analysis.get("question", "")))
-    prompt = prompt.replace("{{code}}", str(last_analysis.get("code", "")))
-    prompt = prompt.replace("{{result}}", str(last_analysis.get("result", "")))
-    prompt = prompt.replace("{{answer}}", str(last_analysis.get("answer", "")))
+    prompt = _fill(template, question=question,
+                   analysis_question=str(last_analysis.get("question", ""))[:2000],
+                   code=str(last_analysis.get("code", ""))[:8000],
+                   result=str(last_analysis.get("result", ""))[:config.MAX_RESULT_CHARS],
+                   answer=str(last_analysis.get("answer", ""))[:2000])
     return call_explanation_llm(prompt)
 
 

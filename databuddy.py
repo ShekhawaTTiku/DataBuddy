@@ -1,191 +1,186 @@
-"""Orchestrates DataBuddy's question-to-answer pipeline."""
+"""UI-independent, session-only question-to-answer pipeline."""
 import re
 from dataclasses import dataclass
 
-import config
 import analyst
+import config
 import executor
 import message_handler
-from dataset_state import load_and_profile
 from conversation_state import ConversationState
+from dataset_state import load_and_profile
+from llm_clients import ProviderError, request_budget
 
 
 @dataclass
 class AskResult:
-    """Holds both text answer and optional chart data from a single ask() call."""
+    """A response with optional computed evidence, independent of Streamlit."""
     answer: str
     chart_json: str | None = None
     chart_description: str | None = None
     visualization_suggestion: str | None = None
+    result_text: str | None = None
+    code: str | None = None
+    status: str = "success"
+    memory_notice: str | None = None
+
+
+def _nonempty(text: str) -> str:
+    value = (text or "").strip()
+    if not value:
+        raise ValueError("The explanation provider returned an empty response.")
+    return value[:config.MAX_MESSAGE_CHARS]
 
 
 class DataBuddy:
-    def __init__(self, dataset_path: str):
-        self.dataset = load_and_profile(dataset_path)
+    def __init__(self, dataset_source, filename: str | None = None):
+        self.dataset = load_and_profile(dataset_source, filename=filename)
         self.conversation = ConversationState()
+
+    def _remember_analysis(self, question: str, code: str, execution, answer: str) -> None:
+        self.conversation.last_analysis = {
+            "question": question, "code": code,
+            "result": execution.result_text or "", "answer": answer,
+        }
 
     def _run_visualization(self, question: str, analysis_context: str,
                            chart_context: str = "None yet.") -> AskResult:
-        """Generate a Plotly chart and a companion text insight.
-
-        This handles both new visualization requests and follow-up chart
-        modifications (via chart_context).
-        """
-        code = analyst.generate_chart_code(
-            self.dataset.text, question,
-            conversation_text=analysis_context,
-            chart_context=chart_context,
-        )
-        execution = executor.run_code(code, self.dataset.df)
-
-        if config.DEBUG:
-            print(f"\n[DEBUG] Chart code:\n{code}\n[DEBUG] Execution ok={execution.ok}; "
-                  f"chart_json={'present' if execution.chart_json else 'None'}; "
-                  f"error={execution.error!r}")
-
-        # Retry loop for chart generation
-        attempts = 0
-        while not execution.ok and attempts < config.MAX_CODE_RETRIES:
-            attempts += 1
+        previous = None
+        for _ in range(config.MAX_CODE_RETRIES + 1):
             code = analyst.generate_chart_code(
-                self.dataset.text, question,
-                previous_attempt={"code": code, "error": execution.error},
-                conversation_text=analysis_context,
-                chart_context=chart_context,
+                self.dataset.text, question, previous_attempt=previous,
+                conversation_text=analysis_context, chart_context=chart_context,
             )
             execution = executor.run_code(code, self.dataset.df)
-            if config.DEBUG:
-                print(f"\n[DEBUG] Chart retry {attempts}: ok={execution.ok}; "
-                      f"error={execution.error!r}")
+            if execution.ok:
+                break
+            previous = {"code": code, "error": execution.error}
 
-        if execution.ok and execution.chart_json:
-            # Generate a text insight to accompany the chart (hybrid response)
-            insight = analyst.write_chart_insight(
-                self.dataset.text, question, code, execution
+        if not execution.ok:
+            return AskResult(
+                answer="I couldn't generate that chart. " + (execution.error or "Please try a more specific question."),
+                code=code, status="error",
             )
-
-            # Save to chart memory
-            self.conversation.add_chart(
-                question=question,
-                code=code,
-                description=execution.chart_description or "Chart",
-                chart_json=execution.chart_json,
+        if not execution.chart_json:
+            return AskResult(
+                answer=execution.chart_description or "No chart was produced. Please specify what to plot.",
+                code=code, status="clarification",
             )
 
-            return AskResult(
-                answer=insight,
-                chart_json=execution.chart_json,
-                chart_description=execution.chart_description,
-            )
-        elif execution.ok:
-            # Code ran but no figure was generated
-            return AskResult(
-                answer="I wasn't able to generate a chart for that request. "
-                       "Could you rephrase or be more specific about what "
-                       "you'd like to visualize?"
-            )
-        else:
-            return AskResult(
-                answer=f"⚠️ I had trouble generating the chart: {execution.error}\n\n"
-                       "Try rephrasing your request or being more specific "
-                       "about what you'd like to see."
-            )
+        # Keep successful work before asking for optional narration.
+        self.conversation.add_chart(question, code, execution.chart_description or "Chart", execution.chart_json)
+        status = "success"
+        try:
+            insight = _nonempty(analyst.write_chart_insight(self.dataset.text, question, code, execution))
+        except Exception as error:
+            status = "partial"
+            insight = "Your chart is ready. The written explanation is unavailable right now."
+            if isinstance(error, ProviderError):
+                insight += " " + str(error)
+        self._remember_analysis(question, code, execution, insight)
+        return AskResult(
+            answer=insight, chart_json=execution.chart_json,
+            chart_description=execution.chart_description, result_text=execution.result_text,
+            code=code, status=status,
+        )
 
     def ask(self, question: str) -> AskResult:
-        """Process a user question and return an AskResult with text and optional chart."""
+        """Share one provider deadline across routing, generation and narration."""
+        with request_budget():
+            result = self._ask(question)
+            if question.strip() and len(question.strip()) <= config.MAX_QUESTION_CHARS:
+                is_analysis = bool(result.code and result.result_text and result.status in {"success", "partial"})
+                self.conversation.add_turn(question.strip(), result.answer, is_analysis=is_analysis)
+                self.conversation.update_memory(question.strip(), result.answer,
+                                                result_text=result.result_text, status=result.status)
+                result.memory_notice = self.conversation.memory_notice
+            return result
+
+    def _ask(self, question: str) -> AskResult:
+        question = question.strip()
+        if not question:
+            return AskResult(answer="Please enter a question about your data.", status="clarification")
+        if len(question) > config.MAX_QUESTION_CHARS:
+            return AskResult(
+                answer=f"Please keep your question within {config.MAX_QUESTION_CHARS:,} characters.",
+                status="clarification",
+            )
         context = self.conversation.to_prompt_text()
         if "?" not in question and re.search(r"\b(?:remember|keep in mind)\b", question, re.IGNORECASE):
-            answer = ("Got it. I'll keep that in mind for this session. "
-                      "I won't apply it as a data filter unless you ask me to.")
-            self.conversation.add_turn(question, answer, is_analysis=False)
+            answer = "Got it. I'll keep that in mind for this session without applying it as a data filter."
             return AskResult(answer=answer)
 
         analysis_context = self.conversation.to_analysis_prompt_text()
         route_result = message_handler.route_message(
-            question=question,
-            columns=[str(column) for column in self.dataset.df.columns],
-            conversation=context,
-            has_analysis_context=analysis_context !=
-            "No previous data analysis. Do not infer filters from ordinary conversation.",
+            question=question, columns=[str(c) for c in self.dataset.df.columns],
+            conversation=context, has_analysis_context=bool(self.conversation.last_analysis),
             has_chart_context=self.conversation.has_chart_context,
         )
         route = route_result["route"]
         if config.DEBUG:
-            print(f"[router] Selected route: {route}")
+            print(f"[router] route={route}")
 
-        # --- Clock ---
         if route == "clock":
             answer = message_handler.answer_clock()
-            self.conversation.add_turn(question, answer, is_analysis=False)
-            return AskResult(answer=answer)
-
-        # --- Explain Analysis ---
-        if route == "explain_analysis":
-            answer = message_handler.answer_explanation(question, self.conversation.last_analysis)
-            self.conversation.add_turn(question, answer, is_analysis=False)
-            return AskResult(answer=answer)
-
-        # --- Conversation ---
-        if route == "conversation":
-            answer = route_result.get("reply") or message_handler.answer_conversation(question, context)
-            self.conversation.add_turn(question, answer, is_analysis=False)
-            return AskResult(answer=answer)
-
-        # --- Visualization (new chart) ---
-        if route == "visualization":
-            result = self._run_visualization(question, analysis_context)
-            self.conversation.add_turn(question, result.answer, is_analysis=True)
-            return result
-
-        # --- Modify Chart (follow-up on existing chart) ---
-        if route == "modify_chart":
-            chart_context = self.conversation.to_chart_context_text()
-            result = self._run_visualization(question, analysis_context, chart_context)
-            self.conversation.add_turn(question, result.answer, is_analysis=True)
-            return result
-
-        # --- Analysis (text-based, with optional auto-suggest) ---
-        if config.DEBUG:
-            print(f"\n[DEBUG] Dataset profile (only dataset context sent):\n{self.dataset.text}")
-        code = analyst.generate_code(self.dataset.text, question,
-                                     conversation_text=analysis_context)
-        execution = executor.run_code(code, self.dataset.df)
-        if config.DEBUG:
-            print(f"\n[DEBUG] Generated code:\n{code}\n[DEBUG] Execution ok={execution.ok}; "
-                  f"result={execution.result_text!r}; error={execution.error!r}")
-        attempts = 0
-        while not execution.ok and attempts < config.MAX_CODE_RETRIES:
-            attempts += 1
-            code = analyst.generate_code(
-                self.dataset.text, question,
-                previous_attempt={"code": code, "error": execution.error},
-                conversation_text=analysis_context)
-            execution = executor.run_code(code, self.dataset.df)
-            if config.DEBUG:
-                print(f"\n[DEBUG] Retry {attempts}: {code}\n[DEBUG] Execution "
-                      f"ok={execution.ok}; result={execution.result_text!r}; error={execution.error!r}")
-        answer = analyst.write_answer(self.dataset.text, question, code, execution,
-                                      conversation_text=context)
-        is_analysis = execution.ok and execution.result_text != "None"
-
-        # Auto-suggest a visualization after text-only analysis
-        viz_suggestion = None
-        if is_analysis and execution.result_text:
+        elif route == "explain_analysis":
             try:
-                viz_suggestion = analyst.suggest_visualization(
-                    question, execution.result_text,
-                    [str(c) for c in self.dataset.df.columns],
+                answer = _nonempty(message_handler.answer_explanation(question, self.conversation.last_analysis))
+            except Exception as error:
+                if not self.conversation.last_analysis:
+                    raise
+                return AskResult(
+                    answer="The written explanation is unavailable. You can still inspect the previous computed result."
+                           + (" " + str(error) if isinstance(error, ProviderError) else ""),
+                    result_text=self.conversation.last_analysis["result"],
+                    code=self.conversation.last_analysis["code"], status="partial",
                 )
-            except Exception:
-                pass  # Non-critical — skip suggestion on failure
+        elif route == "conversation":
+            answer = _nonempty(route_result.get("reply") or message_handler.answer_conversation(question, context))
+        elif route in {"visualization", "modify_chart"}:
+            if route == "modify_chart" and not self.conversation.has_chart_context:
+                return AskResult(answer="Create a chart first, then ask me to change it.", status="clarification")
+            result = self._run_visualization(
+                question, analysis_context,
+                self.conversation.to_chart_context_text() if route == "modify_chart" else "None yet.",
+            )
+            return result
+        else:
+            previous = None
+            for _ in range(config.MAX_CODE_RETRIES + 1):
+                code = analyst.generate_code(
+                    self.dataset.text, question, previous_attempt=previous, conversation_text=analysis_context,
+                )
+                execution = executor.run_code(code, self.dataset.df)
+                if execution.ok:
+                    break
+                previous = {"code": code, "error": execution.error}
+            if not execution.ok:
+                result = AskResult(
+                    answer="I couldn't calculate that result. " + (execution.error or "Please rephrase the question."),
+                    code=code, status="error",
+                )
+                return result
+            if execution.result_text in {None, "None", ""}:
+                result = AskResult(
+                    answer="No computed result was produced. Please clarify the calculation or columns you mean.",
+                    code=code, status="clarification",
+                )
+                return result
+            status = "success"
+            try:
+                answer = _nonempty(analyst.write_answer(self.dataset.text, question, code, execution, conversation_text=context))
+            except Exception as error:
+                status = "partial"
+                answer = "The calculation completed. The written explanation is unavailable; inspect the computed result below."
+                if isinstance(error, ProviderError):
+                    answer += " " + str(error)
+            self._remember_analysis(question, code, execution, answer)
+            suggestion = None
+            if config.ENABLE_VISUALIZATION_SUGGESTIONS:
+                try:
+                    suggestion = analyst.suggest_visualization(question, execution.result_text, list(map(str, self.dataset.df.columns)))
+                except Exception:
+                    pass
+            return AskResult(answer=answer, result_text=execution.result_text, code=code,
+                             visualization_suggestion=suggestion, status=status)
 
-        if is_analysis:
-            self.conversation.last_analysis = {
-                "question": question,
-                "code": code,
-                "result": execution.result_text,
-                "answer": answer,
-            }
-        self.conversation.add_turn(question, answer, is_analysis=is_analysis)
-        return AskResult(answer=answer, visualization_suggestion=viz_suggestion)
-
+        return AskResult(answer=answer)
