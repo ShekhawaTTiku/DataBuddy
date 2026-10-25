@@ -4,6 +4,7 @@ This directory is the source of truth for the current trusted-demo application. 
 
 | Document | Purpose |
 | --- | --- |
+| [Changes explained simply](CHANGES_EXPLAINED.md) | Starting point, complete grouped change list, reasons, and remaining limits |
 | [Scope and implementation plan](IMPLEMENTATION_PLAN.md) | Agreed work packages, implementation decisions and boundaries |
 | [Work log](WORK_LOG.md) | Steps taken, reasons, checks and corrections |
 | [Setup](SETUP.md) | Environment, configuration, run and test instructions |

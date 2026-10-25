@@ -1,5 +1,12 @@
 # DataBuddy readiness work log
 
+## Plain-language change history — 2026-10-25
+
+- The owner requested a document containing the explained change list and explicitly authorized a terminal commit/push using the configured Git identity to the new DataBuddy repository.
+- Added `CHANGES_EXPLAINED.md` with the original starting point, 29 grouped changes, simple reasons, historical verification evidence, and material limits. Linked it from the documentation index. Scope is the implementation recorded through 2026-10-22; application behavior is unchanged.
+- Publication is limited to these three documentation files in the working checkout. The original backup, credentials, datasets, and saved conversations are excluded. Basic execution protections remain explicitly described as not a hardened security sandbox.
+- Validation for this documentation update: local Markdown file links, all 29 change sections, the execution limitation, and diff/whitespace checks passed. The offline suite passed **152 tests in 33.23 seconds** without live provider calls. A fetch confirmed the starting local/remote commits matched. The terminal push targets `origin/main` without force; remote commit identity and final working status are checked afterward. Any publication failure is reported in the accompanying task result.
+
 ## Private GitHub publication — 2026-10-22
 
 - The owner confirmed publication to `ShekhawaTTiku/DataBuddynew`, requested grouped pushes and reiterated that credentials/private datasets must remain local. Verified destination privacy and empty branch state before publishing.
