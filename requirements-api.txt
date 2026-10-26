@@ -1,0 +1,12 @@
+# Existing analysis/provider versions, without the legacy Streamlit UI.
+pandas==3.0.6
+numpy==2.4.6
+openpyxl==3.1.5
+python-dotenv==1.2.3
+groq==1.7.0
+mistralai==2.10.1
+google-genai==2.25.0
+tzdata==2026.4
+plotly==7.1.0
+fastapi==0.143.0
+uvicorn==0.54.0
