@@ -24,6 +24,7 @@ class ExecutionResult:
     error: str | None
     chart_json: str | None = None
     chart_description: str | None = None
+    result_table: dict | None = None
 
 _RUNNER_PATH = Path(__file__).with_name("_runner.py")
 EXEC_TIMEOUT_SECONDS = config.EXEC_TIMEOUT_SECONDS
@@ -126,7 +127,7 @@ def run_code(code: str, df: pd.DataFrame) -> ExecutionResult:
             if description is not None and not isinstance(description, str):
                 raise ValueError("Invalid chart description")
             return ExecutionResult(True, data["result"][:MAX_RESULT_CHARS], None,
-                                   chart, description[:300] if description else None)
+                                   chart, description[:300] if description else None, data.get("table"))
     except subprocess.TimeoutExpired:
         return ExecutionResult(False, None, f"Execution timed out after {EXEC_TIMEOUT_SECONDS} seconds.")
     except (json.JSONDecodeError, UnicodeDecodeError, ValueError):

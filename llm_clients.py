@@ -5,6 +5,7 @@ import random
 import time
 
 import config
+import telemetry
 
 _deadline = ContextVar("databuddy_provider_deadline", default=None)
 
@@ -74,10 +75,12 @@ def _retry(call, provider: str):
         if remaining <= 0:
             raise ProviderUnavailableError("The request time limit was reached. Try a simpler question.")
         try:
+            telemetry.event("attempt", provider=provider)
             return call(min(config.PROVIDER_TIMEOUT_SECONDS, remaining))
         except ProviderError:
             raise
         except Exception as exc:
+            telemetry.record_limits(getattr(getattr(exc, "response", None), "headers", None), provider)
             if not _is_transient(exc):
                 raise ProviderError(_safe_error(exc, provider)) from None
             if attempt >= config.PROVIDER_MAX_RETRIES:
@@ -115,6 +118,7 @@ def _mistral_completion(prompt: str, model: str, json_mode: bool = False,
             if json_mode:
                 options["response_format"] = {"type": "json_object"}
             response = client.chat.complete(**options)
+            telemetry.record_usage(response, "Mistral", model)
             return _text_content(response.choices[0].message.content).strip()
     return _retry(request, "Mistral")
 
@@ -145,7 +149,14 @@ def _groq_completion(prompt: str, temperature: float = 0.2) -> str:
 
     def request(timeout):
         with Groq(api_key=config.GROQ_API_KEY, timeout=timeout, max_retries=0) as client:
-            response = client.chat.completions.create(model=config.ANALYSIS_MODEL, messages=[{"role": "user", "content": prompt}], temperature=temperature, max_completion_tokens=config.MAX_RESPONSE_TOKENS)
+            options = dict(model=config.ANALYSIS_MODEL, messages=[{"role": "user", "content": prompt}], temperature=temperature, max_completion_tokens=config.MAX_RESPONSE_TOKENS)
+            if telemetry.enabled():
+                raw = client.chat.completions.with_raw_response.create(**options)
+                telemetry.record_limits(raw.headers, "Groq")
+                response = raw.parse()
+            else:
+                response = client.chat.completions.create(**options)
+            telemetry.record_usage(response, "Groq", config.ANALYSIS_MODEL)
             text = (response.choices[0].message.content or "").strip()
             if not text:
                 raise ProviderUnavailableError("Groq returned no answer. Try again later.")
@@ -164,6 +175,7 @@ def _failover(primary, fallback, minimum_primary_seconds: float = 0):
         except ProviderUnavailableError as error:
             if not config.MISTRAL_API_KEY:
                 raise ProviderUnavailableError(f"{error} Mistral fallback is not configured.") from None
+            telemetry.event("fallback")
             return fallback()
 
 
@@ -203,6 +215,7 @@ def _gemini_completion(prompt: str) -> str:
                                      if config.MEMORY_MODEL.startswith(("gemini-3.5-flash-lite", "gemini-3.1-flash-lite")) else None),
                 ),
             )
+            telemetry.record_usage(response, "Gemini", config.MEMORY_MODEL)
             text = (response.text or "").strip()
             if not text:
                 raise ProviderUnavailableError("Gemini returned no memory note. Recent conversation is still available.")

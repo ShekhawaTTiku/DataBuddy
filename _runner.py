@@ -134,6 +134,22 @@ def main() -> None:
             exec(code, namespace)
         result = namespace.get("result")
         output = {"status": "ok", "result": _format_result(result, max_rows, max_chars)}
+        if isinstance(result, (pd.DataFrame, pd.Series)):
+            table = result.to_frame() if isinstance(result, pd.Series) else result
+            table = table.head(max_rows).iloc[:, :20]
+            def cell(value):
+                if value is pd.NA or value is pd.NaT or value is None:
+                    return None
+                value = _plain(value)
+                if isinstance(value, float) and not np.isfinite(value):
+                    return None
+                return value[:240] if isinstance(value, str) else value
+            bounded = {"columns": [str(c)[:160] for c in table.columns],
+                       "rows": [[cell(v) for v in row] for row in table.itertuples(index=False, name=None)],
+                       "index": [str(v)[:160] for v in table.index],
+                       "total_rows": len(result), "total_columns": len(result.columns) if isinstance(result, pd.DataFrame) else 1}
+            if len(json.dumps(bounded)) <= max_chars * 4:
+                output["table"] = bounded
         fig = namespace.get("fig")
         if fig is not None:
             if not isinstance(fig, go.Figure):

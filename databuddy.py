@@ -6,6 +6,7 @@ import analyst
 import config
 import executor
 import message_handler
+import telemetry
 from conversation_state import ConversationState
 from dataset_state import load_and_profile
 from llm_clients import ProviderError, request_budget
@@ -22,6 +23,7 @@ class AskResult:
     code: str | None = None
     status: str = "success"
     memory_notice: str | None = None
+    result_table: dict | None = None
 
 
 def _nonempty(text: str) -> str:
@@ -46,10 +48,12 @@ class DataBuddy:
                            chart_context: str = "None yet.") -> AskResult:
         previous = None
         for _ in range(config.MAX_CODE_RETRIES + 1):
+            telemetry.stage("Preparing chart")
             code = analyst.generate_chart_code(
                 self.dataset.text, question, previous_attempt=previous,
                 conversation_text=analysis_context, chart_context=chart_context,
             )
+            telemetry.stage("Running calculation")
             execution = executor.run_code(code, self.dataset.df)
             if execution.ok:
                 break
@@ -70,6 +74,7 @@ class DataBuddy:
         self.conversation.add_chart(question, code, execution.chart_description or "Chart", execution.chart_json)
         status = "success"
         try:
+            telemetry.stage("Writing answer")
             insight = _nonempty(analyst.write_chart_insight(self.dataset.text, question, code, execution))
         except Exception as error:
             status = "partial"
@@ -81,6 +86,7 @@ class DataBuddy:
             answer=insight, chart_json=execution.chart_json,
             chart_description=execution.chart_description, result_text=execution.result_text,
             code=code, status=status,
+            result_table=execution.result_table,
         )
 
     def ask(self, question: str) -> AskResult:
@@ -90,6 +96,7 @@ class DataBuddy:
             if question.strip() and len(question.strip()) <= config.MAX_QUESTION_CHARS:
                 is_analysis = bool(result.code and result.result_text and result.status in {"success", "partial"})
                 self.conversation.add_turn(question.strip(), result.answer, is_analysis=is_analysis)
+                telemetry.stage("Updating session memory")
                 self.conversation.update_memory(question.strip(), result.answer,
                                                 result_text=result.result_text, status=result.status)
                 result.memory_notice = self.conversation.memory_notice
@@ -110,6 +117,7 @@ class DataBuddy:
             return AskResult(answer=answer)
 
         analysis_context = self.conversation.to_analysis_prompt_text()
+        telemetry.stage("Understanding question")
         route_result = message_handler.route_message(
             question=question, columns=[str(c) for c in self.dataset.df.columns],
             conversation=context, has_analysis_context=bool(self.conversation.last_analysis),
@@ -146,9 +154,11 @@ class DataBuddy:
         else:
             previous = None
             for _ in range(config.MAX_CODE_RETRIES + 1):
+                telemetry.stage("Preparing calculation")
                 code = analyst.generate_code(
                     self.dataset.text, question, previous_attempt=previous, conversation_text=analysis_context,
                 )
+                telemetry.stage("Running calculation")
                 execution = executor.run_code(code, self.dataset.df)
                 if execution.ok:
                     break
@@ -167,6 +177,7 @@ class DataBuddy:
                 return result
             status = "success"
             try:
+                telemetry.stage("Writing answer")
                 answer = _nonempty(analyst.write_answer(self.dataset.text, question, code, execution, conversation_text=context))
             except Exception as error:
                 status = "partial"
@@ -181,6 +192,7 @@ class DataBuddy:
                 except Exception:
                     pass
             return AskResult(answer=answer, result_text=execution.result_text, code=code,
+                             result_table=execution.result_table,
                              visualization_suggestion=suggestion, status=status)
 
         return AskResult(answer=answer)
