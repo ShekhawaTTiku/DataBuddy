@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: databuddy-api
+    runtime: docker
+    plan: free
+    healthCheckPath: /api/health
+    envVars:
+      - key: DATABUDDY_ORIGINS
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: MISTRAL_API_KEY
+        sync: false
+      - key: EXEC_TIMEOUT_SECONDS
+        value: "30"
+      - key: DEBUG
+        value: "false"
