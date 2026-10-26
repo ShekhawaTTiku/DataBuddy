@@ -1,5 +1,7 @@
 # Security and privacy
 
+The dedicated API adds temporary bearer-token sessions, explicit CORS, body/concurrency/session limits and a 30-minute inactivity expiry. Only the token is stored in tab-scoped browser storage. [WEBAPP_SETUP.md](WEBAPP_SETUP.md) records the exact policy and its limits. Basic execution checks remain not a hardened sandbox.
+
 ## Intended use
 
 Trusted, non-sensitive personal demonstrations. These safeguards reduce obvious accidental file/network behavior and resource misuse. They do not make generated Python safe for arbitrary public users. The worker shares the host OS account and has no OS-enforced memory or network isolation; AST restrictions are not a complete security boundary.

@@ -1,0 +1,436 @@
+<div id="databuddy-design-preview">
+  <div class="db-review" hidden>
+    <span>Design preview · synthetic data</span>
+    <div class="db-review-options">
+      <label>Screen <select data-review="scene"><option>Welcome</option><option>Sample loaded</option><option>Conversation</option><option>Analysis</option><option>High input</option><option>Adjusted allowance</option><option>Allowance reached</option><option>Partial success</option><option>Running</option></select></label>
+      <label>View <select data-review="layout"><option>Desktop</option><option>Mobile</option></select></label>
+    </div>
+  </div>
+  <div class="db-stage">
+    <section class="db-app" data-theme="light" aria-label="DataBuddy analysis workspace">
+      <div class="db-drawer-shade" hidden></div>
+      <aside class="db-sidebar" aria-label="Workspace navigation">
+        <div class="db-brand-row"><span class="db-brand"><span class="db-mark"><i data-lucide="chart-no-axes-combined" aria-hidden="true"></i></span>DataBuddy<span class="db-brand-dot">.</span></span><button class="db-icon db-close-nav" data-action="sidebar" aria-label="Close sidebar"><i data-lucide="panel-left-close" aria-hidden="true"></i></button></div>
+        <button class="db-new db-control" data-action="reset"><i data-lucide="square-pen" aria-hidden="true"></i>Reset conversation</button>
+        <div class="db-section-label">WORKSPACE</div>
+        <button class="db-nav db-control db-nav-current" data-action="chat"><i data-lucide="message-circle" aria-hidden="true"></i>Conversation</button>
+        <button class="db-nav db-control" data-action="dataset"><i data-lucide="table-2" aria-hidden="true"></i>Dataset overview<span class="db-nav-end"><i data-lucide="arrow-up-right" aria-hidden="true"></i></span></button>
+        <div class="db-dataset-slot"></div>
+        <div class="db-sidebar-bottom">
+          <div class="db-session-note"><i data-lucide="leaf" aria-hidden="true"></i><div>Just for this session<span>No account. No saved history.</span></div></div>
+          <div class="db-bottom-actions"><button class="db-quiet db-control" data-action="about"><i data-lucide="info" aria-hidden="true"></i>About DataBuddy</button><button class="db-icon" data-action="theme" aria-label="Switch to dark mode"><i data-lucide="moon" aria-hidden="true"></i></button></div>
+        </div>
+      </aside>
+      <div class="db-main">
+        <header class="db-topbar"><div class="db-top-left"><button class="db-icon" data-action="sidebar" aria-label="Toggle sidebar"><i data-lucide="panel-left" aria-hidden="true"></i></button><span class="db-top-title">A little curiosity goes a long way.</span><span class="db-mobile-title">DataBuddy.</span></div><span class="db-demo-label">PORTFOLIO DEMO</span></header>
+        <div class="db-workspace">
+          <main class="db-chat" aria-label="Conversation">
+            <div class="db-conversation"></div>
+            <div class="db-compose-zone">
+              <div class="db-active-file" hidden><i data-lucide="file-spreadsheet" aria-hidden="true"></i><span>demo_sales.csv</span><span class="db-file-tag">Sample data</span></div>
+              <div class="db-composer">
+                <label class="db-sr" for="db-message">Message DataBuddy</label>
+                <textarea id="db-message" rows="2" placeholder="Ask a question about your data…"></textarea>
+                <div class="db-composer-tools"><button class="db-icon" data-action="upload" aria-label="Attach a CSV or XLSX dataset" data-tooltip="Upload CSV or XLSX · up to 20 MB"><i data-lucide="plus" aria-hidden="true"></i></button><span class="db-composer-hint">Your data, a clearer picture.</span><button class="db-send" data-action="send" aria-label="Send message"><i data-lucide="arrow-up" aria-hidden="true"></i></button></div>
+              </div>
+              <div class="db-input-warning" hidden role="status"><span><i data-lucide="triangle-alert" aria-hidden="true"></i><span class="db-warning-count"></span></span><button class="db-icon" aria-label="Why high token usage matters" data-tooltip="Longer messages use more of this session’s allowance. Consistently high usage may reduce the number of messages available."><i data-lucide="info" aria-hidden="true"></i></button></div>
+              <div class="db-budget-note" hidden role="status"></div>
+              <div class="db-composer-footer"><span class="db-remaining">15 messages remaining</span><div class="db-usage-wrap"><button class="db-usage-button db-control" aria-expanded="false" aria-controls="db-usage-card"><i data-lucide="gauge" aria-hidden="true"></i>Usage<i data-lucide="chevron-up" aria-hidden="true"></i></button><section class="db-usage-card" id="db-usage-card" aria-label="Session usage details" hidden></section></div></div>
+              <div class="db-footnote">Temporary session · Check important results against the evidence.</div>
+            </div>
+          </main>
+          <aside class="db-analysis" aria-label="Analysis panel" hidden></aside>
+        </div>
+      </div>
+      <div class="db-dialog-layer" hidden><section class="db-dialog" role="dialog" aria-modal="true" aria-labelledby="db-dialog-title"></section></div>
+      <div class="db-toast" role="status" hidden></div>
+    </section>
+  </div>
+  <div class="db-preview-caption">Interactive design preview · sample answers and usage figures · no provider requests</div>
+</div>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500&family=Newsreader:opsz,wght@6..72,400;6..72,500&display=swap');
+#databuddy-design-preview { --db-accent-light:#26736b; --db-radius:20px; font-family:'DM Sans',Arial,sans-serif; color:light-dark(#252824,#e8e9e3); }
+#databuddy-design-preview * { box-sizing:border-box; }
+#databuddy-design-preview [hidden] { display:none!important; }
+#databuddy-design-preview button,#databuddy-design-preview select,#databuddy-design-preview textarea { font:inherit; }
+#databuddy-design-preview button { color:inherit; cursor:pointer; }
+#databuddy-design-preview button:disabled { cursor:default; opacity:.45; }
+#databuddy-design-preview button:focus-visible,#databuddy-design-preview textarea:focus-visible,#databuddy-design-preview select:focus-visible { outline:2px solid var(--db-accent,#26736b); outline-offset:3px; }
+#databuddy-design-preview .db-sr { position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%); }
+#databuddy-design-preview .db-review { display:flex;justify-content:space-between;gap:12px;align-items:center;margin:0 0 14px;font-size:12px;flex-wrap:wrap; }
+#databuddy-design-preview .db-review-options { display:flex;gap:12px;flex-wrap:wrap; }
+#databuddy-design-preview .db-review label { display:flex;gap:7px;align-items:center; }
+#databuddy-design-preview .db-review select { background:light-dark(#f7f6f2,#242823);color:inherit;border:1px solid light-dark(#d8dbd3,#4b5048);border-radius:7px;padding:5px;max-width:175px; }
+#databuddy-design-preview .db-stage { container-type:inline-size;container-name:db;max-width:1200px;margin:auto;transition:max-width .25s ease; }
+#databuddy-design-preview .db-stage.db-mobile { max-width:390px; }
+#databuddy-design-preview .db-app { --db-bg:#f7f6f2;--db-sidebar:#ecebe5;--db-surface:#fff;--db-text:#252824;--db-muted:#686d65;--db-line:#dedfd7;--db-accent:var(--db-accent-light);--db-accent-text:#fff;--db-soft:#e4eee9;--db-user:#eae9e3;--db-red:#b33132;--db-red-bg:#f8eeee;--db-shadow:0 12px 35px #25282412;--db-scrim:#25282450;color-scheme:light;color:var(--db-text);background:var(--db-bg);border:1px solid var(--db-line);border-radius:14px;min-height:740px;display:grid;grid-template-columns:216px minmax(0,1fr);position:relative;font-size:14px;line-height:1.55;overflow:clip; }
+#databuddy-design-preview .db-app[data-theme="dark"] { --db-bg:#20231f;--db-sidebar:#191c18;--db-surface:#292d27;--db-text:#e8e9e3;--db-muted:#adb3a5;--db-line:#3c4237;--db-accent:#8dc7b9;--db-accent-text:#182920;--db-soft:#2a3b32;--db-user:#34382f;--db-red:#f39b99;--db-red-bg:#402a28;--db-shadow:0 12px 35px #0004;--db-scrim:#0008;color-scheme:dark; }
+#databuddy-design-preview i,#databuddy-design-preview svg.lucide { width:17px;height:17px;flex-shrink:0;vertical-align:middle;stroke-width:1.6; }
+#databuddy-design-preview .db-control { display:inline-flex;align-items:center;gap:9px; }
+#databuddy-design-preview .db-icon { display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;padding:6px;border:0;background:transparent;border-radius:7px;flex-shrink:0; }
+#databuddy-design-preview .db-icon:hover { background:var(--db-user); }
+#databuddy-design-preview .db-sidebar { background:var(--db-sidebar);padding:23px 15px 13px;display:flex;flex-direction:column;min-width:0; }
+#databuddy-design-preview .db-brand-row { display:flex;align-items:center;justify-content:space-between;margin-bottom:30px;padding-left:4px;gap:4px; }
+#databuddy-design-preview .db-brand { display:flex;align-items:center;gap:7px;font-size:20px;letter-spacing:-.7px;font-weight:500; }
+#databuddy-design-preview .db-brand-dot { color:var(--db-accent);margin-left:-7px; }
+#databuddy-design-preview .db-mark { width:25px;height:25px;color:var(--db-accent);display:grid;place-items:center; }
+#databuddy-design-preview .db-mark svg { width:24px;height:24px; }
+#databuddy-design-preview .db-close-nav { width:25px; }
+#databuddy-design-preview .db-new { border:1px solid var(--db-line);background:var(--db-bg);border-radius:9px;padding:10px 11px;font-size:12px;white-space:nowrap; }
+#databuddy-design-preview .db-new:hover { background:var(--db-surface); }
+#databuddy-design-preview .db-section-label { color:var(--db-muted);font-size:10px;letter-spacing:1.5px;margin:28px 10px 10px; }
+#databuddy-design-preview .db-nav { width:100%;padding:10px 10px;border:0;background:transparent;text-align:left;border-radius:7px;font-size:12px; }
+#databuddy-design-preview .db-nav:hover { background:var(--db-bg); }
+#databuddy-design-preview .db-nav-current { background:var(--db-user);font-weight:500; }
+#databuddy-design-preview .db-nav-end { margin-left:auto;color:var(--db-muted); }
+#databuddy-design-preview .db-nav-end svg { width:13px;height:13px; }
+#databuddy-design-preview .db-dataset { border-top:1px solid var(--db-line);margin-top:26px;padding:18px 9px; }
+#databuddy-design-preview .db-dataset-label { color:var(--db-muted);font-size:10px;letter-spacing:1.3px;margin-bottom:13px; }
+#databuddy-design-preview .db-dataset-name { display:flex;align-items:center;gap:7px;font-size:12px;overflow-wrap:anywhere; }
+#databuddy-design-preview .db-dataset-name svg { color:var(--db-accent); }
+#databuddy-design-preview .db-dataset p { font-size:11px;color:var(--db-muted);margin:8px 0 12px 24px; }
+#databuddy-design-preview .db-dataset .db-quiet { font-size:11px; }
+#databuddy-design-preview .db-empty-dataset { color:var(--db-muted);font-size:12px; }
+#databuddy-design-preview .db-sidebar-bottom { margin-top:auto;padding-top:50px; }
+#databuddy-design-preview .db-session-note { display:flex;gap:8px;padding:12px 8px;color:var(--db-muted);font-size:11px; }
+#databuddy-design-preview .db-session-note svg { width:14px;height:14px;margin-top:2px; }
+#databuddy-design-preview .db-session-note span { display:block;font-size:10px;margin-top:2px; }
+#databuddy-design-preview .db-bottom-actions { display:flex;align-items:center;justify-content:space-between;border-top:1px solid var(--db-line);padding:12px 4px 0;gap:4px; }
+#databuddy-design-preview .db-quiet { border:0;background:transparent;padding:4px 0;color:var(--db-muted);font-size:12px; }
+#databuddy-design-preview .db-quiet:hover { color:var(--db-text); }
+#databuddy-design-preview .db-main { min-width:0; }
+#databuddy-design-preview .db-topbar { min-height:72px;display:flex;align-items:center;justify-content:space-between;padding:15px 24px;gap:12px; }
+#databuddy-design-preview .db-top-left { display:flex;align-items:center;gap:10px;min-width:0; }
+#databuddy-design-preview .db-top-title { font-size:12px;color:var(--db-muted); }
+#databuddy-design-preview .db-mobile-title { display:none;font-size:16px;letter-spacing:-.4px;font-weight:500; }
+#databuddy-design-preview .db-demo-label { font-size:9px;letter-spacing:1.6px;color:var(--db-muted);white-space:nowrap; }
+#databuddy-design-preview .db-workspace { display:flex;min-height:666px; }
+#databuddy-design-preview .db-chat { min-width:0;flex:1;display:flex;flex-direction:column; }
+#databuddy-design-preview .db-conversation { flex:1;padding:20px 32px 28px; }
+#databuddy-design-preview .db-welcome { max-width:600px;margin:54px auto 0; }
+#databuddy-design-preview .db-welcome-symbol { color:var(--db-accent);display:inline-flex;margin-bottom:16px; }
+#databuddy-design-preview .db-welcome-symbol svg { width:32px;height:32px;stroke-width:1.3; }
+#databuddy-design-preview .db-eyebrow { color:var(--db-muted);font-size:10px;letter-spacing:1.8px;margin-bottom:11px; }
+#databuddy-design-preview .db-welcome h1 { font-family:'Newsreader',Georgia,serif;font-size:42px;font-weight:400;line-height:1.12;letter-spacing:-1px;margin:0 0 16px;max-width:510px; }
+#databuddy-design-preview .db-welcome p { font-size:13px;color:var(--db-muted);max-width:430px;margin:0 0 24px; }
+#databuddy-design-preview .db-primary { display:inline-flex;align-items:center;justify-content:center;gap:7px;background:var(--db-accent);color:var(--db-accent-text);border:1px solid transparent;border-radius:8px;padding:10px 13px;font-size:12px;font-weight:500; }
+#databuddy-design-preview .db-primary:hover { filter:brightness(.95); }
+#databuddy-design-preview .db-secondary { display:inline-flex;align-items:center;justify-content:center;gap:7px;background:transparent;color:var(--db-text);border:1px solid var(--db-line);border-radius:8px;padding:10px 13px;font-size:12px; }
+#databuddy-design-preview .db-secondary:hover { background:var(--db-user); }
+#databuddy-design-preview .db-welcome-actions { display:flex;flex-wrap:wrap;gap:9px; }
+#databuddy-design-preview .db-format { margin-top:12px;color:var(--db-muted);font-size:11px; }
+#databuddy-design-preview .db-tasks { display:flex;justify-content:center;gap:7px;flex-wrap:wrap;max-width:600px;margin:17px auto 0; }
+#databuddy-design-preview .db-task { display:inline-flex;align-items:center;gap:6px;padding:7px 9px;border-radius:7px;border:1px solid var(--db-line);background:transparent;font-size:11px; }
+#databuddy-design-preview .db-task svg { width:13px;height:13px;color:var(--db-muted); }
+#databuddy-design-preview .db-task:hover { background:var(--db-soft);border-color:var(--db-accent); }
+#databuddy-design-preview .db-compose-zone { padding:0 32px 20px;position:relative; }
+#databuddy-design-preview .db-composer { background:var(--db-surface);border:1px solid var(--db-line);border-radius:var(--db-radius);box-shadow:0 3px 9px #25282406;overflow:hidden;max-width:680px;margin:0 auto; }
+#databuddy-design-preview textarea { resize:vertical;width:100%;min-height:71px;max-height:160px;border:0;background:transparent;color:var(--db-text);padding:17px 19px 7px;display:block;font-size:13px;line-height:1.5; }
+#databuddy-design-preview textarea::placeholder { color:var(--db-muted); }
+#databuddy-design-preview .db-composer-tools { display:flex;align-items:center;padding:0 12px 11px;gap:8px; }
+#databuddy-design-preview .db-composer-hint { color:var(--db-muted);font-size:10px; }
+#databuddy-design-preview .db-send { margin-left:auto;width:33px;height:33px;border:0;border-radius:10px;background:var(--db-accent);color:var(--db-accent-text);display:grid;place-items:center; }
+#databuddy-design-preview .db-active-file { display:flex;align-items:center;gap:6px;max-width:680px;margin:0 auto 10px;color:var(--db-muted);font-size:11px; }
+#databuddy-design-preview .db-active-file svg { width:13px;height:13px; }
+#databuddy-design-preview .db-file-tag { background:var(--db-soft);color:var(--db-accent);border-radius:4px;font-size:9px;padding:2px 5px;margin-left:4px; }
+#databuddy-design-preview .db-composer-footer { max-width:680px;margin:8px auto 0;display:flex;align-items:center;justify-content:space-between;gap:10px;color:var(--db-muted);font-size:10px; }
+#databuddy-design-preview .db-usage-wrap { position:relative; }
+#databuddy-design-preview .db-usage-button { border:0;background:transparent;padding:5px 0;color:var(--db-muted);font-size:11px;gap:5px; }
+#databuddy-design-preview .db-usage-button svg { width:13px;height:13px; }
+#databuddy-design-preview .db-footnote { color:var(--db-muted);font-size:10px;text-align:center;margin-top:7px; }
+#databuddy-design-preview .db-user-message { margin:3px 0 28px auto;background:var(--db-user);padding:12px 17px;border-radius:16px 16px 4px 16px;max-width:92%;width:fit-content;font-size:13px;overflow-wrap:anywhere; }
+#databuddy-design-preview .db-answer { max-width:660px;margin:auto; }
+#databuddy-design-preview .db-assistant-label { display:flex;align-items:center;gap:8px;font-size:12px;font-weight:500;margin-bottom:14px; }
+#databuddy-design-preview .db-assistant-label svg { width:18px;height:18px;color:var(--db-accent); }
+#databuddy-design-preview .db-answer h2 { font-family:'Newsreader',Georgia,serif;font-size:27px;line-height:1.2;font-weight:400;letter-spacing:-.3px;margin:0 0 12px; }
+#databuddy-design-preview .db-answer p { margin:0 0 14px;font-size:13px; }
+#databuddy-design-preview .db-answer strong { font-weight:500; }
+#databuddy-design-preview .db-result-preview { width:100%;background:var(--db-surface);border:1px solid var(--db-line);padding:16px;border-radius:11px;text-align:left;display:flex;gap:15px;align-items:center;margin:18px 0 10px; }
+#databuddy-design-preview .db-result-preview:hover { border-color:var(--db-accent); }
+#databuddy-design-preview .db-mini-bars { width:35px;height:30px;display:flex;gap:4px;align-items:flex-end;flex-shrink:0; }
+#databuddy-design-preview .db-mini-bars span { background:var(--db-accent);width:8px;border-radius:2px 2px 0 0;height:62%; }
+#databuddy-design-preview .db-mini-bars span:nth-child(2) { height:100%;opacity:.7; }
+#databuddy-design-preview .db-mini-bars span:nth-child(3) { height:43%;opacity:.45; }
+#databuddy-design-preview .db-result-preview small { display:block;color:var(--db-muted);font-size:10px;margin-top:3px; }
+#databuddy-design-preview .db-result-preview>svg { margin-left:auto;color:var(--db-muted); }
+#databuddy-design-preview .db-answer-actions { display:flex;align-items:center;gap:13px;flex-wrap:wrap;margin:14px 0 18px; }
+#databuddy-design-preview .db-answer-actions button { font-size:10px; }
+#databuddy-design-preview .db-answer-actions svg { width:12px;height:12px; }
+#databuddy-design-preview .db-followups { display:flex;gap:7px;flex-wrap:wrap; }
+#databuddy-design-preview .db-followup { border:1px solid var(--db-line);border-radius:6px;background:transparent;padding:7px 9px;font-size:10px; }
+#databuddy-design-preview .db-followup:hover { background:var(--db-soft); }
+#databuddy-design-preview .db-analysis { width:310px;flex-shrink:0;background:var(--db-surface);border-left:1px solid var(--db-line);min-width:0; }
+#databuddy-design-preview .db-panel-top { padding:18px 18px 12px;display:flex;align-items:flex-start;justify-content:space-between;gap:8px; }
+#databuddy-design-preview .db-panel-top p { font-size:10px;color:var(--db-muted);margin:4px 0 0; }
+#databuddy-design-preview .db-panel-top h2 { font-size:13px;font-weight:500;margin:0; }
+#databuddy-design-preview .db-panel-tabs { display:flex;border-bottom:1px solid var(--db-line);padding:0 18px;gap:17px; }
+#databuddy-design-preview .db-panel-tabs button { background:transparent;border:0;border-bottom:2px solid transparent;padding:10px 0;color:var(--db-muted);font-size:11px; }
+#databuddy-design-preview .db-panel-tabs button[aria-selected="true"] { color:var(--db-accent);border-bottom-color:var(--db-accent); }
+#databuddy-design-preview .db-panel-content { padding:22px 18px; }
+#databuddy-design-preview .db-panel-content h3 { font-weight:500;font-size:13px;margin:0 0 5px; }
+#databuddy-design-preview .db-caption { color:var(--db-muted);font-size:10px;margin:0 0 19px; }
+#databuddy-design-preview .db-chart { margin:28px 0 18px; }
+#databuddy-design-preview .db-bar-row { display:grid;grid-template-columns:56px minmax(0,1fr) 33px;gap:8px;align-items:center;margin-bottom:21px;font-size:11px; }
+#databuddy-design-preview .db-bar-track { height:27px;background:var(--db-bg); }
+#databuddy-design-preview .db-bar-fill { height:100%;background:var(--db-accent);border-radius:0 3px 3px 0; }
+#databuddy-design-preview .db-bar-row:first-child .db-bar-fill { opacity:.65; }
+#databuddy-design-preview .db-chart-axis { margin:0 41px 0 64px;display:flex;justify-content:space-between;color:var(--db-muted);font-size:11px;border-top:1px solid var(--db-line);padding-top:6px; }
+#databuddy-design-preview .db-axis-title { text-align:center;font-size:10px;color:var(--db-muted);margin-top:7px; }
+#databuddy-design-preview .db-chart-insight { border-top:1px solid var(--db-line);padding-top:17px;font-size:12px; }
+#databuddy-design-preview .db-chart-insight p { font-size:11px;color:var(--db-muted);margin:5px 0 20px; }
+#databuddy-design-preview .db-export-row { display:flex;gap:7px;flex-wrap:wrap; }
+#databuddy-design-preview .db-export-row button { font-size:10px;padding:7px 9px; }
+#databuddy-design-preview .db-table { width:100%;border-collapse:collapse;font-size:11px; }
+#databuddy-design-preview .db-table th { text-align:left;font-weight:500;color:var(--db-muted); }
+#databuddy-design-preview .db-table td,#databuddy-design-preview .db-table th { padding:10px 6px;border-bottom:1px solid var(--db-line);overflow-wrap:anywhere; }
+#databuddy-design-preview .db-table td:last-child,#databuddy-design-preview .db-table th:last-child { text-align:right;font-variant-numeric:tabular-nums; }
+#databuddy-design-preview .db-code { background:var(--db-bg);padding:14px;border-radius:8px;overflow-wrap:anywhere;white-space:pre-wrap;font-family:Consolas,monospace;font-size:11px; }
+#databuddy-design-preview .db-input-warning { color:var(--db-red);max-width:680px;margin:9px auto 0;font-size:11px;display:flex;align-items:center;justify-content:space-between;gap:5px; }
+#databuddy-design-preview .db-input-warning>span { display:flex;gap:6px;align-items:center; }
+#databuddy-design-preview .db-input-warning svg { width:13px;height:13px; }
+#databuddy-design-preview .db-input-warning .db-icon { width:24px;height:24px; }
+#databuddy-design-preview .db-budget-note { max-width:680px;margin:9px auto 0;font-size:11px;color:var(--db-red);display:flex;align-items:center;gap:6px; }
+#databuddy-design-preview .db-usage-card { position:absolute;bottom:35px;right:0;width:310px;max-width:calc(100cqi - 36px);background:var(--db-surface);color:var(--db-text);border:1px solid var(--db-line);border-radius:13px;box-shadow:var(--db-shadow);padding:17px;z-index:20;font-size:11px;animation:db-pop .15s ease-out; }
+#databuddy-design-preview .db-usage-heading { display:flex;justify-content:space-between;align-items:center;margin-bottom:3px; }
+#databuddy-design-preview .db-usage-heading strong { font-weight:500;font-size:13px; }
+#databuddy-design-preview .db-usage-sample { color:var(--db-muted);font-size:10px;margin-bottom:14px; }
+#databuddy-design-preview .db-usage-pair { display:flex;justify-content:space-between;gap:15px;margin:6px 0;font-variant-numeric:tabular-nums; }
+#databuddy-design-preview .db-usage-track { height:4px;background:var(--db-user);margin:10px 0 14px;border-radius:4px; }
+#databuddy-design-preview .db-usage-track span { display:block;height:100%;background:var(--db-accent);border-radius:4px; }
+#databuddy-design-preview .db-usage-card table { width:100%;border-collapse:collapse;font-size:10px; }
+#databuddy-design-preview .db-usage-card th { font-weight:400;color:var(--db-muted); }
+#databuddy-design-preview .db-usage-card th,#databuddy-design-preview .db-usage-card td { padding:6px 0;text-align:right;font-variant-numeric:tabular-nums; }
+#databuddy-design-preview .db-usage-card th:first-child,#databuddy-design-preview .db-usage-card td:first-child { text-align:left; }
+#databuddy-design-preview .db-usage-card hr { border:0;border-top:1px solid var(--db-line);margin:12px 0; }
+#databuddy-design-preview .db-usage-detail { color:var(--db-muted);font-size:10px;margin-top:6px; }
+#databuddy-design-preview .db-usage-status { color:var(--db-accent);font-size:10px; }
+#databuddy-design-preview .db-dialog-layer { position:absolute;inset:0;background:var(--db-scrim);z-index:40;display:flex;align-items:flex-start;justify-content:center;padding:100px 18px 30px; }
+#databuddy-design-preview .db-dialog { width:420px;max-width:100%;border:1px solid var(--db-line);border-radius:17px;background:var(--db-surface);padding:23px;box-shadow:var(--db-shadow); }
+#databuddy-design-preview .db-dialog-heading { display:flex;align-items:center;justify-content:space-between;gap:8px; }
+#databuddy-design-preview .db-dialog h2 { font-family:'Newsreader',Georgia,serif;font-size:28px;font-weight:400;margin:0; }
+#databuddy-design-preview .db-dialog p { color:var(--db-muted);font-size:12px;margin:15px 0; }
+#databuddy-design-preview .db-drop-zone { border:1px dashed var(--db-line);border-radius:10px;padding:28px 16px;text-align:center;margin:20px 0; }
+#databuddy-design-preview .db-drop-zone>svg { color:var(--db-accent);width:25px;height:25px;margin-bottom:8px; }
+#databuddy-design-preview .db-dialog-actions { display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap; }
+#databuddy-design-preview .db-toast { position:absolute;bottom:30px;left:50%;transform:translateX(-50%);padding:11px 17px;border-radius:9px;background:var(--db-text);color:var(--db-bg);z-index:60;font-size:12px;max-width:85%;box-shadow:var(--db-shadow); }
+#databuddy-design-preview .db-preview-caption { font-size:11px;text-align:center;color:light-dark(#686d65,#adb3a5);padding:12px 8px 0; }
+#databuddy-design-preview .db-app.db-nav-collapsed { grid-template-columns:minmax(0,1fr); }
+#databuddy-design-preview .db-nav-collapsed .db-sidebar { display:none; }
+#databuddy-design-preview .db-drawer-shade { position:absolute;inset:0;background:var(--db-scrim);z-index:25; }
+#databuddy-design-preview .db-processing { padding:26px 0;color:var(--db-muted);font-size:12px;display:flex;align-items:center;gap:8px; }
+#databuddy-design-preview .db-processing svg { color:var(--db-accent); }
+#databuddy-design-preview .db-partial { background:var(--db-soft);padding:12px;border-radius:8px;font-size:11px;margin:13px 0; }
+#databuddy-design-preview .db-exhausted { border-top:1px solid var(--db-line);padding-top:14px;max-width:680px;margin:0 auto 12px;font-size:12px; }
+#databuddy-design-preview .db-exhausted p { margin:5px 0;color:var(--db-muted);font-size:11px; }
+@keyframes db-pop { from { transform:translateY(5px);opacity:0; } to { transform:translateY(0);opacity:1; } }
+@container db (max-width:900px) { #databuddy-design-preview .db-app:has(.db-analysis:not([hidden])) { grid-template-columns:minmax(0,1fr); } #databuddy-design-preview .db-app:has(.db-analysis:not([hidden])) .db-sidebar { display:none; } }
+@container db (max-width:620px) {
+  #databuddy-design-preview .db-app { grid-template-columns:minmax(0,1fr);min-height:760px; }
+  #databuddy-design-preview .db-sidebar { display:none; }
+  #databuddy-design-preview .db-app.db-drawer-open .db-sidebar { display:flex;position:absolute;inset:0 auto 0 0;width:236px;z-index:30; }
+  #databuddy-design-preview .db-topbar { padding:13px 14px;min-height:62px; }
+  #databuddy-design-preview .db-top-title { display:none; }
+  #databuddy-design-preview .db-mobile-title { display:inline; }
+  #databuddy-design-preview .db-demo-label { display:none; }
+  #databuddy-design-preview .db-conversation { padding:22px 20px; }
+  #databuddy-design-preview .db-welcome { margin:48px auto 20px; }
+  #databuddy-design-preview .db-welcome h1 { font-size:37px; }
+  #databuddy-design-preview .db-welcome p { font-size:12px; }
+  #databuddy-design-preview .db-compose-zone { padding:0 15px 18px; }
+  #databuddy-design-preview .db-composer-hint { font-size:9px; }
+  #databuddy-design-preview .db-analysis { position:absolute;inset:62px 0 0;width:auto;border-left:0;z-index:15; }
+  #databuddy-design-preview .db-panel-top { padding:18px 20px 10px; }
+  #databuddy-design-preview .db-panel-content { padding:24px 22px; }
+  #databuddy-design-preview .db-task { font-size:10px; }
+  #databuddy-design-preview .db-usage-card { max-width:calc(100cqi - 30px); }
+  #databuddy-design-preview .db-answer h2 { font-size:27px; }
+  #databuddy-design-preview textarea { font-size:16px; }
+  #databuddy-design-preview .db-workspace { min-height:698px; }
+  #databuddy-design-preview .db-dialog-layer { padding-top:75px; }
+}
+@media (pointer:coarse) { #databuddy-design-preview .db-icon,#databuddy-design-preview .db-send,#databuddy-design-preview .db-task,#databuddy-design-preview .db-quiet,#databuddy-design-preview .db-usage-button,#databuddy-design-preview .db-followup,#databuddy-design-preview .db-panel-tabs button { min-height:44px; } #databuddy-design-preview .db-icon,#databuddy-design-preview .db-send { min-width:44px; } }
+@media (prefers-reduced-motion:reduce) { #databuddy-design-preview *,#databuddy-design-preview *::before,#databuddy-design-preview *::after { animation:none!important;transition:none!important; } }
+</style>
+<script>
+(() => {
+  const root = document.getElementById('databuddy-design-preview');
+  const $ = s => root.querySelector(s);
+  const all = s => [...root.querySelectorAll(s)];
+  const icon = n => `<i data-lucide="${n}" aria-hidden="true"></i>`;
+  const escape = s => String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const design = {scene:'Welcome',layout:'Desktop',theme:'Light',radius:20,accent:'#26736b'};
+  let state = {loaded:false,answered:false,panel:false,tab:'Chart',used:0,allowance:15,adjusted:false,high:false,busy:false,partial:false,usagePin:false,question:'Compare sales by region and show me a chart.',answerType:'region'};
+  let responseTimer, toastTimer, hoverTimer;
+  let lastFocus;
+  function icons(){ if(globalThis.lucide) lucide.createIcons({attrs:{width:16,height:16}}); }
+  function toast(message){ $('.db-toast').textContent=message;$('.db-toast').hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('.db-toast').hidden=true,2600); }
+  const tasks = [['compass','Explore my data','Give me an overview of this dataset.'],['chart-column','Create a chart','Compare sales by region and show me a chart.'],['columns-3','Compare groups','Compare sales by product.'],['trending-up','Find trends','Show monthly sales trends.'],['list-checks','Check data quality','Check missing values and duplicates.']];
+  function taskButtons(){ return `<div class="db-tasks">${tasks.map(([i,label,prompt])=>`<button class="db-task" data-prompt="${escape(prompt)}">${icon(i)}${label}</button>`).join('')}</div>`; }
+  function applyDesign(){
+    $('.db-app').dataset.theme=design.theme.toLowerCase();
+    $('.db-app').style.setProperty('--db-accent-light',design.accent);
+    $('.db-app').style.setProperty('--db-radius',design.radius+'px');
+    $('.db-stage').classList.toggle('db-mobile',design.layout==='Mobile');
+    const b=$('[data-action="theme"]');b.setAttribute('aria-label',design.theme==='Light'?'Switch to dark mode':'Switch to light mode');b.innerHTML=icon(design.theme==='Light'?'moon':'sun');
+    const view=$('[data-review="layout"]');if(view)view.value=design.layout;
+    icons();
+  }
+  function dataset(){
+    $('.db-dataset-slot').innerHTML=`<div class="db-dataset"><div class="db-dataset-label">ACTIVE DATASET</div>${state.loaded?`<div class="db-dataset-name">${icon('file-spreadsheet')}demo_sales.csv</div><p>4 rows · 5 columns<br>Synthetic sample dataset</p><button class="db-quiet db-control" data-action="remove">${icon('trash-2')}Remove dataset</button>`:`<div class="db-empty-dataset">A fresh perspective starts<br>with a little data.</div>`}</div>`;
+    $('.db-active-file').hidden=!state.loaded;
+  }
+  function answer(){
+    const summary=state.answerType==='overview';
+    const quality=state.answerType==='quality';
+    const trend=state.answerType==='trend';
+    const product=state.answerType==='product';
+    let heading='South leads with 60% of sales.';
+    let text='Sales total <strong>$1,000</strong> across the sample dataset. South contributes <strong>$600</strong>, compared with <strong>$400</strong> in North—a difference of $200.';
+    if(summary){heading='A small dataset. A clear starting point.';text='There are <strong>4 rows and 5 columns</strong>: Month, Region, Product, Sales and Units. Total sales are <strong>$1,000</strong>, with <strong>20 units</strong> sold. You can explore regions, products or monthly trends.';}
+    if(quality){heading='No missing values in this sample.';text='All <strong>20 cells</strong> are populated. There are <strong>0 duplicate rows</strong>. The sample has two regions and two products; the monthly labels are preserved as text.';}
+    if(trend){heading='Sales rose from $300 to $700.';text='January totals <strong>$300</strong> and February totals <strong>$700</strong>. That is an increase of <strong>$400</strong>. This sample covers only two months, so it does not establish a longer-term trend.';}
+    if(product){heading='Notebook and Pen are tied.';text='Each product contributes <strong>$500</strong>, or <strong>50%</strong> of the sample’s $1,000 total sales. There is no single highest-sales product.';}
+    const previewTitle=summary?'Dataset overview':quality?'Data quality results':trend?'Monthly sales':product?'Sales by product':'Sales by region';
+    return `<div class="db-user-message">${escape(state.question)}</div><article class="db-answer"><div class="db-assistant-label">${icon('chart-no-axes-combined')}DataBuddy</div>${state.busy?`<div class="db-processing" role="status">${icon('circle-dashed')}<span>Running calculation…</span></div>`:`${state.partial?`<h2>Your calculation is ready.</h2><div class="db-partial">The written explanation was unavailable. Your chart and computed values are preserved.</div>${resultTable()}`:`<h2>${heading}</h2><p>${text}</p>`}<button class="db-result-preview" data-action="open-result"><span class="db-mini-bars"><span></span><span></span><span></span></span><span>${previewTitle}<small>${quality?'Missing values and duplicate checks':summary?'4 rows · 5 columns':'Computed from all 4 rows · USD'}</small></span>${icon('panel-right-open')}</button><div class="db-answer-actions"><button class="db-quiet db-control" data-action="calculation">${icon('code-2')}View calculation</button><button class="db-quiet db-control" data-action="result-data">${icon('table-2')}View result data</button><button class="db-quiet db-control" data-action="copy">${icon('copy')}Copy answer</button></div><div class="db-followups"><button class="db-followup" data-prompt="Compare sales by product.">Compare products</button><button class="db-followup" data-prompt="Show monthly sales trends.">Explore monthly trends</button></div>`}</article>`;
+  }
+  function conversation(){
+    if(state.answered) $('.db-conversation').innerHTML=answer();
+    else $('.db-conversation').innerHTML=`<div class="db-welcome"><span class="db-welcome-symbol">${icon('chart-no-axes-combined')}</span><div class="db-eyebrow">A LITTLE DATA. A NEW PERSPECTIVE.</div><h1>What would you like to understand about your data?</h1><p>${state.loaded?'Your sample dataset is ready. Ask a question, follow a hunch, or start with one of the tasks below.':'Bring your spreadsheet and your curiosity. Find the story behind the numbers, one question at a time.'}</p>${state.loaded?`<button class="db-secondary" data-action="dataset">${icon('table-2')}Preview sample data</button>`:`<div class="db-welcome-actions"><button class="db-primary" data-action="upload">${icon('upload')}Upload a dataset</button><button class="db-secondary" data-action="sample">Try sample data${icon('arrow-up-right')}</button></div><div class="db-format">CSV or XLSX · up to 20 MB · session only</div>`}</div>`;
+    const old=$('.db-compose-zone .db-tasks');if(old)old.remove();
+    if(!state.answered) $('.db-composer').insertAdjacentHTML('afterend',taskButtons());
+  }
+  function resultTable(){
+    let rows=[['North','$400'],['South','$600'],['Total','$1,000']];let first='Region';
+    if(state.answerType==='product'){first='Product';rows=[['Notebook','$500'],['Pen','$500'],['Total','$1,000']];}
+    if(state.answerType==='trend'){first='Month';rows=[['January','$300'],['February','$700'],['Total','$1,000']];}
+    if(state.answerType==='quality'){first='Check';rows=[['Missing cells','0'],['Duplicate rows','0'],['Rows checked','4']];}
+    return `<table class="db-table"><thead><tr><th>${first}</th><th>${first==='Check'?'Count':'Sales (USD)'}</th></tr></thead><tbody>${rows.map(r=>`<tr><td>${r[0]}</td><td>${r[1]}</td></tr>`).join('')}</tbody></table>`;
+  }
+  function sampleTable(){return `<table class="db-table"><thead><tr><th>Month</th><th>Region</th><th>Product</th><th>Sales</th></tr></thead><tbody><tr><td>Jan</td><td>North</td><td>Notebook</td><td>100</td></tr><tr><td>Jan</td><td>South</td><td>Pen</td><td>200</td></tr><tr><td>Feb</td><td>North</td><td>Pen</td><td>300</td></tr><tr><td>Feb</td><td>South</td><td>Notebook</td><td>400</td></tr></tbody></table><p class="db-caption" style="margin-top:12px">Synthetic data · USD · Units: 2, 4, 6, 8 respectively.</p>`;}
+  function calculation(){
+    const group=state.answerType==='trend'?'Month':state.answerType==='product'?'Product':'Region';
+    if(state.answerType==='quality')return `missing_cells = df.isna().sum().sum()\nduplicates = df.duplicated().sum()`;
+    return `result = (\n    df.groupby("${group}")["Sales"]\n      .sum()\n)\n\n# All 4 rows included\n# No additional filters`;
+  }
+  function chart(){
+    const trend=state.answerType==='trend',product=state.answerType==='product';
+    const labels=trend?['Jan','Feb']:product?['Notebook','Pen']:['North','South'];
+    const vals=trend?[300,700]:product?[500,500]:[400,600];const max=trend?800:600;
+    return `<h3>${trend?'Monthly sales':product?'Sales by product':'Sales by region'}</h3><p class="db-caption">All rows · sum of Sales</p><figure class="db-chart" role="img" aria-label="${labels[0]}: ${vals[0]} dollars; ${labels[1]}: ${vals[1]} dollars.">${labels.map((l,i)=>`<div class="db-bar-row"><span style="font-size:${product?'10':'11'}px">${l}</span><div class="db-bar-track" data-tooltip="${l}: $${vals[i]}"><div class="db-bar-fill" style="width:${vals[i]/max*100}%"></div></div><span>${vals[i]}</span></div>`).join('')}<div class="db-chart-axis"><span>0</span><span>${max/2}</span><span>${max}</span></div><figcaption class="db-axis-title">Sales (USD)</figcaption></figure><div class="db-chart-insight">${trend?'February accounts for 70% of sales.':product?'Both products contribute equally.':'South contributes 60% of total sales.'}<p>Based on computed values from the synthetic sample.</p></div><div class="db-export-row"><button class="db-secondary" data-action="png">${icon('download')}PNG</button><button class="db-secondary" data-action="html-export">${icon('external-link')}Interactive HTML</button></div><p class="db-caption" style="margin-top:12px">HTML includes plotted values and loads Plotly from the internet.</p>`;
+  }
+  function panel(){
+    const el=$('.db-analysis');el.hidden=!state.panel;if(!state.panel)return;
+    const overview=state.tab==='Dataset';
+    el.innerHTML=`<div class="db-panel-top"><div><h2>${overview?'Dataset overview':'Analysis workspace'}</h2><p>demo_sales.csv · sample data</p></div><button class="db-icon" data-action="close-panel" aria-label="Close analysis panel">${icon('x')}</button></div>${overview?'':`<div class="db-panel-tabs" role="tablist" aria-label="Analysis views">${['Chart','Result data','Calculation'].map(t=>`<button role="tab" aria-selected="${state.tab===t}" data-tab="${t}" id="db-tab-${t.replace(' ','-')}" aria-controls="db-panel-view">${t}</button>`).join('')}</div>`}<div class="db-panel-content" id="db-panel-view" ${overview?'':`role="tabpanel" aria-labelledby="db-tab-${state.tab.replace(' ','-')}"`}>${overview?`<h3>Small enough to explore.</h3><p class="db-caption">4 rows · 5 columns · no missing values</p>${sampleTable()}`:state.tab==='Calculation'?`<h3>How this was calculated</h3><p class="db-caption">Sample calculation · Python / pandas</p><pre class="db-code">${escape(calculation())}</pre><p class="db-caption" style="margin-top:18px">Basic execution checks are not a hardened security sandbox.</p>`:state.tab==='Result data'?`<h3>Computed result</h3><p class="db-caption">All 4 rows · synthetic data</p>${resultTable()}`:state.answerType==='quality'?`<h3>Data quality</h3>${resultTable()}`:chart()}</div>`;
+  }
+  function usage(){
+    const n=state.used,remaining=Math.max(0,state.allowance-n);
+    $('.db-remaining').textContent=`${remaining} message${remaining===1?'':'s'} remaining`;
+    $('.db-usage-card').innerHTML=`<div class="db-usage-heading"><strong>Session usage</strong><span class="db-usage-status">${state.adjusted?'High usage':'Session only'}</span></div><div class="db-usage-sample">Illustrative figures · no live requests</div><div class="db-usage-pair"><span>Message allowance</span><span>${n} / ${state.allowance} used</span></div><div class="db-usage-track"><span style="width:${Math.min(n/state.allowance*100,100)}%"></span></div>${state.adjusted?`<div class="db-usage-detail">Adjusted from 15 to 13 after 3 high-usage exchanges.</div>`:''}<div class="db-usage-pair"><span>Last exchange</span><span>${n?'3,900':'—'} tokens</span></div><div class="db-usage-pair"><span>Session total</span><span>${n?(n*3900).toLocaleString():'—'} tokens</span></div><hr><table><thead><tr><th>Last exchange</th><th>Input</th><th>Output</th></tr></thead><tbody><tr><td>Groq · code / narration</td><td>${n?'2,380':'—'}</td><td>${n?'420':'—'}</td></tr><tr><td>Mistral · routing</td><td>${n?'620':'—'}</td><td>${n?'80':'—'}</td></tr><tr><td>Gemini · memory</td><td>${n?'340':'—'}</td><td>${n?'60':'—'}</td></tr></tbody></table><div class="db-usage-detail">Includes all illustrated calls, not only your typed message. Reasoning/cache breakdown unavailable.</div><hr><div class="db-usage-pair"><span>Groq daily requests left</span><span>Unavailable</span></div><div class="db-usage-pair"><span>Groq tokens/minute left</span><span>Unavailable</span></div><div class="db-usage-pair"><span>Gemini / Mistral quota</span><span>Unavailable</span></div><div class="db-usage-detail">No provider headers loaded in this preview. Shared quotas do not guarantee future messages.</div>`;
+    $('.db-budget-note').hidden=!state.adjusted;
+    $('.db-budget-note').innerHTML=`${icon('info')}Allowance adjusted from 15 to 13 due to high usage.`;
+    let old=$('.db-exhausted');if(old)old.remove();
+    const exhausted=remaining===0;
+    $('.db-composer').hidden=exhausted;
+    if(exhausted)$('.db-composer').insertAdjacentHTML('beforebegin',`<div class="db-exhausted"><strong>You’ve reached this session’s allowance.</strong><p>Your conversation and results are still available to explore and download.</p><button class="db-quiet db-control" data-action="result-data">${icon('table-2')}View results</button></div>`);
+    $('[data-action="send"]').disabled=state.busy||exhausted;
+    $('#db-message').disabled=state.busy||exhausted;
+  }
+  function inputWarning(){
+    const value=$('#db-message').value;
+    const high=state.high||value.length>1800;
+    $('.db-input-warning').hidden=!high||state.used>=state.allowance;
+    $('.db-warning-count').textContent=`High input usage · ≈ ${state.high?'1,200':Math.ceil(value.length/4).toLocaleString()} tokens (preview estimate)`;
+  }
+  function render(){dataset();conversation();panel();usage();inputWarning();applyDesign();icons();}
+  function loadScene(name){
+    clearTimeout(responseTimer);design.scene=name;
+    state={loaded:name!=='Welcome',answered:!['Welcome','Sample loaded'].includes(name),panel:name==='Analysis',tab:'Chart',used:['Welcome','Sample loaded'].includes(name)?0:1,allowance:15,adjusted:false,high:false,busy:name==='Running',partial:name==='Partial success',usagePin:false,question:'Compare sales by region and show me a chart.',answerType:'region'};
+    $('#db-message').value='';$('.db-usage-card').hidden=true;$('.db-usage-button').setAttribute('aria-expanded','false');closeDialog(false);
+    $('.db-app').classList.remove('db-drawer-open');$('.db-drawer-shade').hidden=true;
+    if(name==='High input'){state.high=true;$('#db-message').value='Compare sales across regions, explain the calculation, then break down the monthly results. Include the assumptions and checks behind each comparison.';}
+    if(name==='Adjusted allowance'){state.used=3;state.allowance=13;state.adjusted=true;}
+    if(name==='Allowance reached'){state.used=13;state.allowance=13;state.adjusted=true;}
+    if(name==='Partial success')state.panel=true;
+    const select=$('[data-review="scene"]');if(select)select.value=name;
+    render();
+  }
+  function closeDialog(restore=true){$('.db-dialog-layer').hidden=true;$('.db-dialog').innerHTML='';if(restore&&lastFocus?.isConnected)lastFocus.focus();}
+  function dialog(kind){
+    lastFocus=document.activeElement;
+    let title,body,actions;
+    if(kind==='upload'){title='Bring a little data.';body=`<p>Upload a CSV or XLSX to start exploring. Your dataset stays in the current session.</p><div class="db-drop-zone">${icon('file-up')}<div>Choose a file or drop it here</div><div class="db-format">CSV or XLSX · up to 20 MB</div></div><p>This design preview uses synthetic sample data. File processing will be connected in the working app.</p>`;actions='<button class="db-secondary" data-action="close-dialog">Cancel</button><button class="db-primary" data-action="sample">Use sample data</button>';}
+    if(kind==='about'){title='Meet DataBuddy.';body='<p>A conversational data analyst: bring a spreadsheet, ask a question and inspect the calculation behind the answer.</p><p>This is a portfolio design preview with synthetic data. It uses no live provider calls. The working core uses Groq, Gemini and Mistral.</p><p>Session only · no accounts or saved chat history. Basic execution checks are not a hardened security sandbox.</p>';actions='<button class="db-primary" data-action="close-dialog">Got it</button>';}
+    if(kind==='reset'){title='Start a fresh conversation?';body='<p>This clears conversation, charts and memory while keeping the current dataset. Your session usage and remaining allowance stay the same.</p>';actions='<button class="db-secondary" data-action="close-dialog">Keep conversation</button><button class="db-primary" data-action="confirm-reset">Reset conversation</button>';}
+    if(kind==='remove'){title='Remove this dataset?';body='<p>This clears the active dataset, conversation and charts. Your session usage allowance stays the same.</p>';actions='<button class="db-secondary" data-action="close-dialog">Keep dataset</button><button class="db-primary" data-action="confirm-remove">Remove dataset</button>';}
+    if(kind==='html'){title='Download an interactive chart?';body='<p>The working app’s HTML export includes plotted values and needs the internet to load Plotly. Share only data you intend to disclose.</p><p>Exports in this design preview are demonstrated visually; no file is generated.</p>';actions='<button class="db-primary" data-action="close-dialog">Got it</button>';}
+    $('.db-dialog').innerHTML=`<div class="db-dialog-heading"><h2 id="db-dialog-title">${title}</h2><button class="db-icon" data-action="close-dialog" aria-label="Close dialog">${icon('x')}</button></div>${body}<div class="db-dialog-actions">${actions}</div>`;
+    $('.db-dialog-layer').hidden=false;icons();$('.db-dialog button').focus();
+  }
+  function openPanel(tab){if(!state.loaded){dialog('upload');return;}state.panel=true;state.tab=tab;panel();icons();}
+  function send(){
+    if(state.busy||state.used>=state.allowance)return;
+    const prompt=$('#db-message').value.trim();if(!prompt){$('#db-message').focus();return;}
+    if(!state.loaded){dialog('upload');return;}
+    state.question=prompt;state.answerType=/missing|quality|duplicate/i.test(prompt)?'quality':/monthly|trend/i.test(prompt)?'trend':/product/i.test(prompt)?'product':/overview|explore|structure/i.test(prompt)?'overview':'region';
+    state.high=false;state.partial=false;state.answered=true;state.busy=true;state.panel=false;$('#db-message').value='';render();
+    responseTimer=setTimeout(()=>{state.busy=false;state.used++;render();},750);
+  }
+  function showUsage(show){$('.db-usage-card').hidden=!show;$('.db-usage-button').setAttribute('aria-expanded',String(show));}
+  root.addEventListener('click',e=>{
+    const task=e.target.closest('[data-prompt]');if(task){if(!state.loaded){dialog('upload');return;}state.high=false;$('#db-message').value=task.dataset.prompt;inputWarning();$('#db-message').focus();return;}
+    const tab=e.target.closest('[data-tab]');if(tab){state.tab=tab.dataset.tab;panel();icons();return;}
+    const trigger=e.target.closest('[data-action]');if(!trigger)return;
+    const action=trigger.dataset.action;
+    if(action==='theme'){design.theme=design.theme==='Light'?'Dark':'Light';applyDesign();}
+    if(action==='sidebar'){
+      if($('.db-stage').getBoundingClientRect().width<=620){const open=$('.db-app').classList.toggle('db-drawer-open');$('.db-drawer-shade').hidden=!open;}
+      else $('.db-app').classList.toggle('db-nav-collapsed');
+    }
+    if(action==='sample'){state.loaded=true;state.answered=false;state.panel=false;state.high=false;closeDialog(false);render();toast('Sample loaded · 4 rows, 5 columns');}
+    if(action==='chat'){state.panel=false;panel();}
+    if(action==='dataset')openPanel('Dataset');
+    if(action==='open-result')openPanel(state.answerType==='overview'?'Dataset':state.answerType==='quality'?'Result data':'Chart');
+    if(action==='calculation')openPanel('Calculation');
+    if(action==='result-data')openPanel('Result data');
+    if(action==='close-panel'){state.panel=false;panel();}
+    if(['upload','about','reset','remove'].includes(action))dialog(action);
+    if(action==='close-dialog')closeDialog();
+    if(action==='confirm-reset'||action==='confirm-remove'){clearTimeout(responseTimer);state.answered=false;state.panel=false;state.high=false;state.busy=false;state.partial=false;if(action==='confirm-remove')state.loaded=false;$('#db-message').value='';closeDialog(false);render();toast(action==='confirm-reset'?'Conversation cleared · allowance unchanged':'Dataset removed · allowance unchanged');}
+    if(action==='send')send();
+    if(action==='png')toast('PNG download placement preview · no file generated');
+    if(action==='html-export')dialog('html');
+    if(action==='copy'){
+      const text=$('.db-answer')?.innerText||'';
+      if(navigator.clipboard?.writeText)navigator.clipboard.writeText(text).then(()=>toast('Sample answer copied')).catch(()=>toast('Select the answer text to copy it.'));
+      else toast('Select the answer text to copy it.');
+    }
+  });
+  $('.db-drawer-shade').addEventListener('click',()=>{$('.db-app').classList.remove('db-drawer-open');$('.db-drawer-shade').hidden=true;});
+  $('#db-message').addEventListener('input',()=>{state.high=false;inputWarning();});
+  $('#db-message').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();send();}});
+  const wrap=$('.db-usage-wrap');
+  wrap.addEventListener('pointerenter',e=>{if(e.pointerType==='mouse'){clearTimeout(hoverTimer);showUsage(true);}});
+  wrap.addEventListener('pointerleave',()=>{if(!state.usagePin)hoverTimer=setTimeout(()=>showUsage(false),180);});
+  $('.db-usage-button').addEventListener('focus',()=>showUsage(true));
+  wrap.addEventListener('focusout',e=>{if(!wrap.contains(e.relatedTarget)&&!state.usagePin)showUsage(false);});
+  $('.db-usage-button').addEventListener('click',()=>{state.usagePin=!state.usagePin;showUsage(state.usagePin);});
+  root.addEventListener('keydown',e=>{
+    if(e.key==='Escape'){closeDialog();state.usagePin=false;showUsage(false);$('.db-app').classList.remove('db-drawer-open');$('.db-drawer-shade').hidden=true;}
+    if(e.key==='Tab'&&!$('.db-dialog-layer').hidden){const b=[...$('.db-dialog').querySelectorAll('button')];const first=b[0],last=b[b.length-1];if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus();}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus();}}
+  });
+  $('.db-dialog-layer').addEventListener('click',e=>{if(e.target===$('.db-dialog-layer'))closeDialog();});
+  all('[data-review]').forEach(el=>el.addEventListener('change',()=>{design[el.dataset.review]=el.value;if(el.dataset.review==='scene')loadScene(el.value);else applyDesign();}));
+  render();
+  if(globalThis.Tweak){
+    let currentScene=design.scene;
+    const tweak=new Tweak({container:$('.db-app'),onChange:()=>{if(design.scene!==currentScene){currentScene=design.scene;loadScene(design.scene);}applyDesign();}});
+    tweak.addSelect(design,'scene',{label:'Screen state',options:['Welcome','Sample loaded','Conversation','Analysis','High input','Adjusted allowance','Allowance reached','Partial success','Running']});
+    tweak.addSelect(design,'layout',{label:'Preview width',options:['Desktop','Mobile']});
+    tweak.addSelect(design,'theme',{label:'Appearance',options:['Light','Dark']});
+    tweak.addColorPicker(design,'accent',{label:'Light-mode accent',reference:'--db-accent-light'});
+    tweak.addSlider(design,'radius',{label:'Composer corners',min:10,max:28,unit:'px',reference:'--db-radius'});
+  }else $('.db-review').hidden=false;
+})();
+</script>

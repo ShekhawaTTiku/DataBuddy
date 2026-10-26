@@ -1,5 +1,7 @@
 # Setup and configuration
 
+For the dedicated React/FastAPI app, use [working web app setup](WEBAPP_SETUP.md). The instructions below describe the retained legacy interfaces.
+
 ## Verified local environment
 
 Windows and Python 3.11.9. Ten direct runtime dependencies are pinned in requirements.txt; requirements-lock-windows.txt records 63 installed runtime packages, including Google Gen AI for memory. It is an installed-environment snapshot, not a clean-install or cross-platform guarantee. Verify dependency resolution and tests on any different Python/OS before deployment.

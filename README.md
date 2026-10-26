@@ -4,9 +4,15 @@ Working repository: [ShekhawaTTiku/DataBuddynew](https://github.com/ShekhawaTTik
 
 A personal data-analysis demonstration: ask questions about a CSV or XLSX file, run generated pandas calculations, and inspect computed evidence and interactive Plotly charts.
 
-The existing Streamlit interface and terminal interface share a UI-independent Python core. This change prepares that core for a future frontend; it does not create a new web app or API.
+The dedicated React/TypeScript frontend and FastAPI backend now wrap the working Python core. It includes uploads, temporary chat, charts and exports, computed evidence and session usage controls. The legacy Streamlit and terminal interfaces remain available.
 
-## Quick start
+## Dedicated web app
+
+See [working setup and deployment](docs/WEBAPP_SETUP.md) for the finalized stack and commands. Start the API with `python -m uvicorn api.main:app --port 8000 --workers 1 --no-access-log`; in `frontend`, run `npm ci` then `npm run dev`. Install `requirements-api-lock.txt` first and configure provider keys privately in the existing `.env`.
+
+The web app has a 15-message session allowance, subject to one usage adjustment; clear/reset keeps the allowance. Docker/Render and Cloudflare Pages configuration is included, but nothing is deployed. [Verification](docs/WEBAPP_VERIFICATION.md) records tests and the remaining Linux hosting check.
+
+## Legacy interfaces
 
 Use Python 3.11.9 (the verified version), create a virtual environment, and install `requirements.txt`. Copy `.env.example` to `.env` and set a Groq and/or Mistral key. Add a Gemini key for primary conversation summarization; Mistral can also handle memory when Gemini is unavailable. Keep real keys private. Then run:
 
@@ -37,16 +43,16 @@ See [setup and configuration](docs/SETUP.md) for full instructions and the Windo
 - Six recent turns and five recent charts are retained by default; the UI displays up to 40 recent messages. Reset clears conversation/chart context; Remove dataset clears the active dataset too.
 - Ambiguous or mixed date text stays unchanged with a notice. Leading-zero CSV identifiers remain text. CSV uses comma separators and pandas default missing-value markers.
 - Answers include computed evidence. A narration failure preserves the calculation/chart. Optional visualization suggestions are disabled by default to reduce calls.
-- Groq handles code and result narration; Gemini handles memory. Mistral handles routing/chat/explanation and is the fallback for all Groq/Gemini roles. Summary failure preserves answers and bounded recent context. Model access and free quotas depend on the provider account. No paid hosting, paid upgrade or deployment is configured. See [provider and memory behavior](docs/PROVIDERS_AND_MEMORY.md).
+- Groq handles code and result narration; Gemini handles memory. Mistral handles routing/chat/explanation and is the fallback for all Groq/Gemini roles. Summary failure preserves answers and bounded recent context. Model access and free quotas depend on the provider account. No paid hosting, paid upgrade or live deployment is enabled. See [provider and memory behavior](docs/PROVIDERS_AND_MEMORY.md).
 
 ## Privacy and execution
 
 Use non-sensitive, trusted demonstration datasets. Provider prompts may contain sample rows, statistics, category values, results and conversation context. Basic code checks, a child-process timeout and output limits reduce accidental unsafe behavior; **this is not a hardened sandbox for arbitrary public code execution**. See [security and privacy](docs/SECURITY_AND_PRIVACY.md).
 
-PNG downloads use the chart's camera button. Interactive HTML is prepared on request and needs internet to load Plotly; it contains the plotted data.
+The dedicated web app exports PNG and self-contained HTML from the analysis panel. Exports contain the plotted data. The legacy Streamlit HTML export still loads Plotly from the internet.
 
 ## Documentation
 
 Start with the [documentation index](docs/README.md), [work log](docs/WORK_LOG.md), [architecture](docs/ARCHITECTURE.md), [demo checklist](docs/DEMO_CHECKLIST.md), and [validation record](docs/VALIDATION.md).
 
-Only `D:/projects/databuddy 2.0` was changed. The original `D:/projects/DataBuddy` is the local backup. No new commits, pushes, deployment or replacement frontend are part of this work.
+Work takes place in `D:/projects/databuddy 2.0`; the original `D:/projects/DataBuddy` remains the local backup. The dedicated frontend/API and their documentation are included in this repository. The owner authorized grouped commits and pushes on 2026-10-27; see [the checkpoint record](docs/GITHUB_CHECKPOINT.md). Hosting configuration is included, but no deployment is performed by that publication.

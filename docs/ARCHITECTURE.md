@@ -1,6 +1,10 @@
 # Architecture
 
-## Current interfaces
+## Dedicated web application
+
+`frontend/` contains the React/TypeScript interface. `api/main.py` owns bounded in-memory sessions, streamed upload, idempotent background jobs, usage policy and explicit-origin bearer-token transport. `telemetry.py` observes only safe metadata and actual stages through ContextVars. Mutations call the existing core; `/api/job` returns small progress updates and `/api/session` returns dataset previews and completed results. Native dialogs provide data/calculation/chart inspection; Plotly loads on demand. Deployment uses one API worker because state is in-process.
+
+## Retained interfaces
 
 - web_app.py: the existing Streamlit upload/chat/chart interface and controls.
 - app.py: terminal loop, session commands and computed evidence display.
@@ -32,6 +36,6 @@
 
 See [provider roles and memory](PROVIDERS_AND_MEMORY.md) for model choices, rollover examples and failure behavior.
 
-## Future frontend seam
+## Core/API boundary
 
-The core imports no Streamlit code. A later API can construct a session coordinator and serialize AskResult. This readiness work deliberately does not add HTTP endpoints, accounts, databases, queues or a replacement UI. Session ownership/authentication and hardened execution must be revisited if the audience expands beyond trusted demonstrations.
+The core imports no Streamlit code. The implemented API constructs a session coordinator and serializes AskResult, including bounded structured result tables. No accounts or database were added. Session ownership/authentication and hardened execution must be revisited if the audience expands beyond trusted demonstrations.

@@ -1,5 +1,7 @@
 # Providers and temporary conversation memory
 
+The dedicated API now captures allowlisted usage metadata and available Groq quota headers without changing the provider text-return interface. See [usage policy](WEBAPP_SETUP.md) for estimates, reported totals and unavailable account quotas.
+
 Implemented at the owner's request on 2026-10-22 (Asia/Kolkata). This supersedes the initial readiness decision to omit active Gemini summarization. The original backup already used a rolling recent-turn window; it contained an unused Gemini function, not a working summary cycle. Removing that unused plumbing did not remove an active feature. This implementation adds the agreed cycle for the first time in the working checkout.
 
 ## Model roles

@@ -1,5 +1,11 @@
 # Validation record
 
+## Private GitHub update preflight — 2026-10-27
+
+The owner authorized grouped publication of the existing dedicated-app changes. Fresh checks: **167 Python tests passed in 33.51 seconds**, with one documented upstream Starlette TestClient/httpx deprecation warning; `python -m pip check` passed; `npm run build` passed TypeScript/Vite production compilation; npm audit reported zero vulnerabilities. No live provider calls, deployment or new browser/resource acceptance run was performed during this publication. The existing dedicated-app browser/resource evidence below remains dated. Publication safety and commit groups are recorded in [GITHUB_CHECKPOINT.md](GITHUB_CHECKPOINT.md).
+
+Current dedicated-app checks are in [web app verification](WEBAPP_VERIFICATION.md). Historical results below remain dated evidence.
+
 ## Authorized private GitHub checkpoint — 2026-10-22
 
 The owner subsequently authorized grouped commits and separate pushes to the new private DataBuddynew repository. Fresh pre-publication validation passed **152 tests in 31.69 seconds**, with no live model calls and no broken dependencies. Current files, staged batches and the existing 44-blob history were checked for credentials/private-data paths. Destination, commit batches, local-only exclusions and recovery guidance are recorded in [GITHUB_CHECKPOINT.md](GITHUB_CHECKPOINT.md). Earlier statements that changes were uncommitted or unpushed describe the earlier stages and are not the current publication status.

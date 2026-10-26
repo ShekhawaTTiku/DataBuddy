@@ -1,6 +1,8 @@
 # Scope and implementation plan
 
-## Agreed purpose
+Current stage (2026-10-27): the original repair plan below is historical and complete. The owner subsequently authorized the dedicated React/FastAPI web application, now implemented and verified locally. See [working setup](WEBAPP_SETUP.md) and [verification](WEBAPP_VERIFICATION.md). Earlier frontend/API restrictions applied to the repair stage. No commit, push or deployment was authorized for this implementation task.
+
+## Original repair-stage purpose
 
 A personal portfolio showcase for the owner, friends and recruiters, with trusted ordinary demo data and zero operating budget. The existing app must work reliably and match its documentation before a future frontend is designed. No new web app, HTTP API, database, accounts, persistent user storage, paid services or deployment.
 

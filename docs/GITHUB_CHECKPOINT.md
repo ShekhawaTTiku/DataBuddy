@@ -1,5 +1,29 @@
 # Private GitHub checkpoint
 
+## Updated dedicated-app checkpoint — 2026-10-27
+
+The owner explicitly authorized pushing today's existing updates in logical groups to the same private DataBuddynew repository. This newer checkpoint includes the dedicated React frontend/API; the foundation-only record below remains historical.
+
+Starting local and remote revision: `1fe91f3`. `origin` continues to target `https://github.com/ShekhawaTTiku/DataBuddynew.git`, branch `main`; the old repository is retained as `upstream` and is not a push target. GitHub privacy was checked through authenticated repository metadata before publication. No deployment or hosting-account creation is included.
+
+| Batch | Content | Commit |
+| --- | --- | --- |
+| 1 | Structured result tables, provider usage/progress metadata, ignore rules and result regressions | `a366258` |
+| 2 | Bounded session API, API dependencies/lock and request-lifecycle tests | `dc327ae` |
+| 3 | React/TypeScript/Vite analysis workspace, local fonts, charts/exports and npm lock | `c2f50be` |
+| 4 | Docker/Render configuration, placeholder API origins and offline verification/resource tools | `4587eeb` |
+| 5 | Current direction/design, setup/architecture/privacy, verification records and checkpoint documentation | Commit titled `docs: record dedicated web app and October 27 checkpoint` |
+
+Each batch is a separate commit and a separate push to `origin/main`, verified immediately afterward; no force push is used. The final documentation commit completes this checkpoint. Its hash is available from GitHub's main branch/history rather than embedded inside its own contents.
+
+Fresh checks: **167 tests passed in 33.51 seconds**, with one documented upstream Starlette TestClient/httpx deprecation warning; dependency consistency passed; TypeScript/Vite production build passed; npm audit reported zero vulnerabilities. Prior browser/resource results remain recorded in WEBAPP_VERIFICATION.md and were not rerun as part of this publication. No live model-provider calls or quota use occurred during this update.
+
+All 113 eligible files were checked for configured credentials, recognizable API tokens/private keys and forbidden private-data/generated paths. Real `.env` files (including frontend variants), Streamlit secrets, uploads/private datasets, saved state, node_modules, frontend/dist, virtual environments, caches and output/browser artifacts stay local. Only the synthetic example CSV is versioned. The existing application files are compared with a private pre-publication snapshot so that staging/publishing does not silently alter the owner's implementation. Documentation-only corrections clarify publication status and preserve dated implementation evidence.
+
+Final verification compares GitHub main/tree/file identities with the local commit, rechecks repository privacy/exclusions and published-history credential safety, and checks the original backup and clean working status. Use the completed documentation checkpoint, or a later known-good complete commit, for recovery. Restore into a separate folder first to avoid overwriting later uncommitted work.
+
+## Original foundation checkpoint — 2026-10-22
+
 Date: 2026-10-22, Asia/Kolkata. The owner explicitly authorized committing and pushing the verified working version in logical batches to the newly created private [ShekhawaTTiku/DataBuddynew](https://github.com/ShekhawaTTiku/DataBuddynew) repository.
 
 ## Destination and history
