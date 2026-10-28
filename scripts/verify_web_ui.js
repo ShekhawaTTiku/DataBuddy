@@ -1,4 +1,4 @@
-async (page) => {
+async function verifyWebUI(page) {
   const assert = (value, message) => {
     if (!value) throw new Error(message);
   };
@@ -327,4 +327,4 @@ async (page) => {
     .click();
   await page.waitForFunction(() => document.activeElement?.id === "question");
   return "PASS: usage hover, formatting, outer scrolling, breakaway, dashboards, PNG/HTML exports, responsive sizing, preferences, reload, reset autofocus, delayed content loading";
-};
+}
