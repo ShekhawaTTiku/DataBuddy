@@ -1,5 +1,27 @@
 # Private GitHub checkpoint
 
+## October 28 publication and corrected local main — 2026-10-28
+
+The owner explicitly authorized publishing today's changes to private [ShekhawaTTiku/DataBuddynew](https://github.com/ShekhawaTTiku/DataBuddynew) in logical batches, without changes to `.gitignore` or uploads of irrelevant/private/generated files.
+
+The rejected push came from a stale local `main` (`11c1a1a`, tracking `upstream/main`). Actual work was on `codex/demo-stability-fixes`, with unpublished UI commit `e952d9e` already descending from DataBuddynew's `origin/main` (`a674a08`). A fresh fetch found no remote-only work against that working branch. The correction fast-forwards the local `main` reference along existing history, tracks `origin/main`, and finishes with `main` checked out. No merge/rebase/force push is needed; the owner's UI commit is preserved.
+
+| Push batch | Content | Commits |
+| --- | --- | --- |
+| 1 | Existing UI/chart/Markdown work and a runnable Playwright callback repair | `e952d9e`, `c75ecfe` |
+| 2 | Cached value-free dataset metadata, API contract and Python tests | `78cc5e9` |
+| 3 | Dataset-aware menus, dependencies, frontend tests and keyboard-hint removal | `3a61262` |
+| 4 | Isolated synthetic browser fixtures and suggestion-menu verification | `79a52cb` |
+| 5 | Current behavior/verification notes, work log and publication checkpoint | Commit titled `docs: record October 28 publication and branch correction` |
+
+Each batch is pushed explicitly to `origin/main`, with GitHub commit and full-tree comparison afterward. The final documentation commit completes the checkpoint; its hash is read from the repository history instead of embedded inside its own changing content.
+
+Fresh release validation: **170 Python tests passed in 39.56 seconds**, with the existing upstream deprecation warning; seven frontend tests, production build, clean npm audit and expression-wrapper syntax checks for both browser callbacks passed. All checks avoid live providers. Existing browser/touch/accessibility results are preserved with their original implementation dates.
+
+Authenticated repository metadata confirms the exact private destination. All prospective files and new historical blobs are scanned for configured credentials and recognizable token/private-key formats, and every staged batch uses an exact file allowlist. `.gitignore` is already tracked in the older GitHub history; it remains byte-for-byte the same Git blob as the pre-publication remote version and is excluded from today's changes. Real `.env`/secret files, datasets/uploads, saved state, installed/build dependencies, browser screenshots/output and caches remain local. Licenses and offline verification source are relevant application-support files and are included; generated verification artifacts are excluded.
+
+For future updates, work on local `main` and check `git status` plus `git branch -vv` before committing. With `origin` still pointing to DataBuddynew and `main` tracking `origin/main`, the owner's usual `git push origin main` uploads the current local `main`. Commit only reviewed explicit file groups; do not use a force push to bypass future remote changes. Server deployment remains separate and was not performed. Basic execution checks remain **not a hardened security sandbox**.
+
 ## Updated dedicated-app checkpoint — 2026-10-27
 
 The owner explicitly authorized pushing today's existing updates in logical groups to the same private DataBuddynew repository. This newer checkpoint includes the dedicated React frontend/API; the foundation-only record below remains historical.

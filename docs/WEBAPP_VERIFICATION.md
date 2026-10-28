@@ -1,5 +1,15 @@
 # Dedicated web app verification
 
+## Dataset-aware task menus — 2026-10-28
+
+- Added offline regressions for value-free column facts (dates, booleans, identifiers, free text, empty/constant fields and missing counts) and API cache/lifecycle behavior. Full Python suite: **170 passed in 41.09 seconds**, with the existing Starlette/httpx deprecation warning. Column facts are computed once after upload admission, not on each snapshot/poll.
+- Seven frontend tests pass, including four new suggestion cases: actual field references/date detection and sensible aggregates; deterministic ten-item limits with metric variety; all-text/date-only/numeric-only/no-date/empty schemas; quoted unusual names, oversized prompts and input immutability. The TypeScript/Vite production build passes; npm audit reports zero vulnerabilities.
+- `scripts/verify_suggestion_ui.js` verifies against the network-blocked provider fixture on port 8001 and a separate frontend on 5174. Generate its synthetic CSVs first using `python scripts/browser_fixture.py --write-ui-fixtures`. See [setup](WEBAPP_SETUP.md) for the test environment. No production provider quota is used.
+- Browser checks passed for hover, stationary gap traversal, entering/leaving menu items, pointer selection, arrow keys/Home/End/Enter/Escape, focus return to the prompt, and no automatic submissions. One deliberate selected chart request completed through the real loader/API/worker with provider doubles; choices remain available afterward and stay disabled during processing.
+- Wide replacement data produced exactly ten options and the “Top 10” label, omitted IDs and stale previous-result choices, and allowed selection of the last item. Text-only replacement produced an honest no-date state; removal removed dataset menus. The test observed exactly one deliberate message request across all desktop browsing and selection actions.
+- The inspected open desktop menu has zero axe violations. An initial scan caught the library's portal focus guards and out-of-landmark menu placement; fixed positioning within the existing main landmark preserves natural DOM order and avoids those hidden focus guards. Real touch events passed at 390/320px: menus fit the viewport without page overflow, selection focuses the editable prompt, and outside taps close the menu. Light/dark screenshots use synthetic data under ignored `output/playwright/`.
+- Suggestions use bounded, deterministic rules, not semantic certainty or new model calls. Type/identifier/aggregation heuristics can require user correction. Basic execution checks remain **not a hardened security sandbox**. No commit, push or deployment.
+
 ## UX fixes — 2026-10-28
 
 - Offline Python regression suite: **167 passed in 43.02 seconds**. The same upstream Starlette/httpx deprecation warning remains.

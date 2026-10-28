@@ -1,6 +1,6 @@
 # Working web app and deployment handoff
 
-Updated 2026-10-28 (Asia/Kolkata). The dedicated web implementation was published to the owner's private repository on 2026-10-27. The current UX fixes are local and uncommitted; no hosting service creation or deployment has occurred.
+Updated 2026-10-28 (Asia/Kolkata). The dedicated web implementation and today's UX/suggestion fixes are published to the owner's private DataBuddynew repository in reviewed batches. Local `main` now tracks that repository's `origin/main`; see [the publication checkpoint](GITHUB_CHECKPOINT.md). No hosting service creation or deployment has occurred.
 
 ## Final stack
 
@@ -40,6 +40,10 @@ Upload CSV/XLSX (first worksheet), inspect the preview, choose a suggested task,
 
 The sidebar links to exchanges in the current conversation; it is not a saved-chat database. The UI shows short instructions, not the explanatory copy from the earlier mockup. Light/dark colors live in `frontend/src/styles.css`.
 
+The five task buttons now open dataset-aware question menus on hover, keyboard focus or tap. Choose a question to place its full editable text in the prompt; only Send submits it. Menus stay open while moving from the trigger into their choices, close with Escape/outside interaction, and support arrow keys, Home/End and type-ahead. They scroll when space is limited and fit narrow screens. All generated choices are shown up to ten; larger sets show “Top 10 suggestions.” Menus stay available after responses, including “Chart the previous result” when computed evidence exists, and are disabled during work or at allowance exhaustion.
+
+Suggestions are computed locally from cached per-column types, distinct/missing counts and identifier flags, calculated once per successful dataset load. No cell values or extra provider requests are needed. Date trends use actual parsed date columns; absent dates or group columns produce explanatory empty states. Empty/constant columns, recognized identifier names and high-cardinality text are excluded from analytical choices. Group suggestions use at most 30 distinct values. Ranking and total-versus-average choices are conservative heuristics based on column names/types; review/edit a proposed question when your dataset uses different semantics. Replacement refreshes the menu facts; failed replacement preserves them, Clear chat keeps them, and Remove dataset clears them.
+
 Conversation history has a full-width scroll viewport above the prompt. New content follows the bottom until the user scrolls up; Latest message restores following. Reload starts at the latest exchange, including late-loaded charts. Autofocus runs after connection, reset, dataset readiness and exchange navigation, including touch devices as requested. It does not repeatedly steal focus during usage/detail interaction.
 
 Charts retain their generated height with per-row/per-column minimums for Cartesian dashboards, label margins and a separate title/legend area. Multi-panel previews and interactive charts use a readable minimum canvas width; narrow containers scroll horizontally. Interactive chart panels are wider on desktop. PNG and self-contained HTML exports use the same readable geometry. Generated chart prompts also request generous subplot spacing. This is a layout safeguard, not a guarantee that arbitrary generated figures or very long labels need no further adjustment.
@@ -78,6 +82,8 @@ npm run build
 ```
 
 `scripts/browser_fixture.py` is a **verification-only server** on port 8000. It uses synthetic provider responses, the real loader/API/calculation worker, and blocks external network connections. It is excluded from Docker and is never the production entry point. Browser artifacts use only synthetic content and live under ignored `output/playwright/`. See [verification](WEBAPP_VERIFICATION.md).
+
+For isolated suggestion-menu verification, generate synthetic files with `python scripts/browser_fixture.py --write-ui-fixtures`, then run the fixture with `DATABUDDY_FIXTURE_PORT=8001`. Start Vite separately with `VITE_API_URL=http://127.0.0.1:8001` and `npm run dev -- --port 5174`. The verification callback `scripts/verify_suggestion_ui.js` targets these explicit test ports and refuses non-fixture submissions. Run it from the checkout via Playwright CLI after opening `http://127.0.0.1:5174`. Keep these test-only environment settings out of production frontend builds.
 
 ## Deployment: prepared configuration
 
