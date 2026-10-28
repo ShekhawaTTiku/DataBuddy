@@ -20,12 +20,10 @@ import {
   Moon,
   Paperclip,
   Plus,
-  Search,
   SlidersHorizontal,
   Sparkles,
   Sun,
   Trash2,
-  TrendingUp,
   X,
 } from "lucide-react";
 import {
@@ -40,6 +38,7 @@ import { ApiError, readSession, request, startSession } from "./api";
 import type { CallUsage, Session, Turn, Usage } from "./types";
 import Modal from "./Modal";
 import ResultTable from "./ResultTable";
+import TaskSuggestions from "./TaskSuggestions";
 const Chart = lazy(() => import("./Chart"));
 const AnswerText = lazy(() => import("./AnswerText"));
 const ChartThumbnail = lazy(() =>
@@ -47,29 +46,6 @@ const ChartThumbnail = lazy(() =>
 );
 const number = (value: number | null) =>
   value === null ? "Unavailable" : new Intl.NumberFormat().format(value);
-const tasks = [
-  {
-    label: "Explore my data",
-    icon: Search,
-    prompt: "Summarize the key patterns in this dataset.",
-  },
-  {
-    label: "Create a chart",
-    icon: BarChart3,
-    prompt: "Create a chart showing ",
-  },
-  { label: "Compare groups", icon: SlidersHorizontal, prompt: "Compare " },
-  {
-    label: "Find trends",
-    icon: TrendingUp,
-    prompt: "What trends are present in this dataset?",
-  },
-  {
-    label: "Check data quality",
-    icon: Check,
-    prompt: "Check for missing values, duplicates and data quality issues.",
-  },
-];
 type Panel = {
   type: "dataset" | "about" | "analysis" | "reset" | "remove" | "replace";
   turn?: Turn;
@@ -865,42 +841,16 @@ export default function App() {
             <ConversationScrollButton />
           </Conversation>
           <div className="composer-area">
-            {!session?.turns.length && !poll ? (
-              <div className="task-buttons" aria-label="Suggested tasks">
-                {tasks.map((task) => (
-                  <button
-                    disabled={busy}
-                    key={task.label}
-                    onClick={() => prompt(task.prompt)}
-                  >
-                    <task.icon size={15} />
-                    {task.label}
-                  </button>
-                ))}
-              </div>
-            ) : dataset && !busy && !!session?.usage.remaining ? (
-              <div className="followups">
-                <button
-                  onClick={() =>
-                    prompt(
-                      dataset.numeric.length
-                        ? `Summarize ${dataset.numeric[0]}${dataset.categories.length ? ` by ${dataset.categories[0]}` : ""}.`
-                        : "Check for missing values in each column.",
-                    )
-                  }
-                >
-                  Explore a little further
-                </button>
-                <button
-                  onClick={() =>
-                    prompt("Create a chart of the previous result.")
-                  }
-                >
-                  <BarChart3 size={14} />
-                  Chart the result
-                </button>
-              </div>
-            ) : null}
+            <TaskSuggestions
+              dataset={dataset}
+              disabled={busy || !session || session.usage.remaining === 0}
+              onChoose={prompt}
+              hasResult={
+                !!session?.turns.some(
+                  (turn) => turn.result_text || turn.chart_json,
+                )
+              }
+            />
             {error ? (
               <div className="error-banner" role="alert">
                 <span>{error}</span>
@@ -1022,9 +972,6 @@ export default function App() {
                   : uploading
                     ? "Reading dataset…"
                     : notice}
-              </span>
-              <span className="keyboard-hint">
-                Shift + Enter for a new line
               </span>
             </div>
           </div>

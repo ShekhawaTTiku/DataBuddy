@@ -412,7 +412,7 @@ main {
   justify-content: center;
   margin-bottom: 22px;
 }
-.task-buttons button {
+.task-buttons > button {
   border-color: transparent;
   background: transparent;
   font-size: 11px;
@@ -420,9 +420,75 @@ main {
   padding: 6px 8px;
   min-height: 34px;
 }
-.task-buttons button:hover:not(:disabled) {
+.task-buttons > button:hover:not(:disabled) {
   border-color: var(--line);
   background: var(--surface);
+}
+.task-trigger[aria-expanded="true"] {
+  background: var(--accent-soft);
+  color: var(--accent);
+  border-color: var(--line);
+}
+.task-menu {
+  width: min(370px, calc(100vw - 24px));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 8px;
+  background: var(--surface);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  box-shadow: 0 12px 40px #0003;
+  z-index: 30;
+}
+.task-menu-heading {
+  padding: 8px 10px 12px;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 5px;
+}
+.task-menu-heading strong {
+  display: block;
+  font-size: 13px;
+  margin-bottom: 5px;
+}
+.task-menu-heading span,
+.task-menu-foot,
+.task-menu-empty {
+  font-size: 11px;
+  color: var(--muted);
+  line-height: 1.6;
+}
+.task-option {
+  width: 100%;
+  min-height: 42px;
+  justify-content: space-between;
+  border: 0;
+  background: transparent;
+  padding: 10px;
+  text-align: left;
+  font-size: 12px;
+  font-weight: 400;
+}
+.task-option span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.task-option:focus-visible {
+  outline-offset: -2px;
+  background: var(--accent-soft);
+}
+.task-menu-empty,
+.task-menu-foot {
+  margin: 0;
+  padding: 10px;
+}
+.task-menu-foot {
+  border-top: 1px solid var(--line);
+  margin-top: 5px;
 }
 .composer {
   background: var(--surface);
@@ -494,10 +560,6 @@ textarea::placeholder {
   padding: 9px 4px 0;
   font-size: 10px;
   color: var(--muted);
-}
-.keyboard-hint {
-  margin-left: auto;
-  flex-shrink: 0;
 }
 .input-warning {
   display: flex;
@@ -1089,7 +1151,7 @@ caption {
   .task-buttons {
     gap: 2px;
   }
-  .task-buttons button {
+  .task-buttons > button {
     font-size: 10px;
   }
 }
@@ -1153,7 +1215,7 @@ caption {
     gap: 6px;
     margin-bottom: 18px;
   }
-  .task-buttons button {
+  .task-buttons > button {
     font-size: 11px;
     min-height: 36px;
     border: 1px solid var(--line);
@@ -1165,9 +1227,6 @@ caption {
   }
   textarea {
     font-size: 16px;
-  }
-  .keyboard-hint {
-    display: none;
   }
   .composer-file {
     max-width: 180px;
@@ -1232,7 +1291,7 @@ caption {
   .task-buttons {
     gap: 4px;
   }
-  .task-buttons button {
+  .task-buttons > button {
     font-size: 10px;
   }
   .tabs {
@@ -1246,6 +1305,17 @@ caption {
   }
 }
 @media (prefers-reduced-motion: no-preference) {
+  .task-menu {
+    animation: task-menu-enter 0.12s ease-out;
+  }
+  @keyframes task-menu-enter {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
   button {
     transition:
       background-color 0.15s,
