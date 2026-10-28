@@ -318,16 +318,40 @@ main {
   flex-direction: column;
   flex: 1;
   min-height: 0;
-  overflow: auto;
-  padding: 0 24px;
-  scrollbar-gutter: stable;
+  overflow: hidden;
+  padding: 0;
+}
+.conversation-region {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+.conversation-scroll {
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior-y: contain;
+  scroll-padding: 24px;
+}
+.conversation-content {
+  min-height: 100%;
+  padding-inline: 24px;
+}
+.scroll-latest {
+  position: absolute;
+  bottom: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  border-radius: 24px;
+  box-shadow: 0 3px 16px #0002;
+  z-index: 3;
 }
 .conversation {
   width: 100%;
   max-width: 740px;
   margin: 0 auto;
   flex: 1;
-  min-height: 0;
+  min-height: 100%;
 }
 .welcome {
   text-align: center;
@@ -373,12 +397,11 @@ main {
   min-height: 43px;
 }
 .composer-area {
-  width: 100%;
+  width: calc(100% - 48px);
   max-width: 740px;
   margin: 0 auto;
   padding: 16px 0 14px;
-  position: sticky;
-  bottom: 0;
+  flex-shrink: 0;
   background: var(--bg);
   z-index: 2;
 }
@@ -507,7 +530,6 @@ textarea::placeholder {
   z-index: 3;
 }
 .has-chat .conversation {
-  scroll-padding-bottom: 240px;
   flex: none;
   padding: 20px 0 30px;
 }
@@ -550,6 +572,85 @@ textarea::placeholder {
   font-size: 14px;
   line-height: 1.8;
   overflow-wrap: anywhere;
+}
+.message {
+  min-width: 0;
+  max-width: 100%;
+}
+.message-user {
+  max-width: 85%;
+}
+.answer-fallback {
+  white-space: pre-wrap;
+}
+.prose [data-streamdown="table-wrapper"],
+.prose [data-streamdown="code-block"],
+.prose [data-streamdown="mermaid-block"] {
+  max-width: 100%;
+  min-width: 0;
+  margin-block: 16px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  overflow: hidden;
+}
+.prose [data-streamdown="table-container"],
+.prose [data-streamdown="code-block-body"] {
+  overflow-x: auto;
+}
+.prose [data-streamdown="table"] {
+  display: block;
+  overflow-x: auto;
+}
+.prose th,
+.prose td {
+  white-space: normal;
+  min-width: 110px;
+  overflow: visible;
+  text-overflow: clip;
+}
+.prose th {
+  position: static;
+}
+.prose [data-streamdown="code-block-header"],
+.prose [data-streamdown="code-block-actions"],
+.prose [data-streamdown="table-controls"],
+.prose [data-streamdown="mermaid-controls"] {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 6px 10px;
+  background: var(--sidebar);
+}
+.prose [data-streamdown="code-block-header"] {
+  justify-content: space-between;
+}
+.prose [data-streamdown] button {
+  min-width: 34px;
+  min-height: 34px;
+  padding: 6px;
+}
+.prose [data-streamdown] button svg {
+  width: 16px;
+  height: 16px;
+}
+.prose [data-streamdown="code-block"] pre {
+  margin: 0;
+  border-radius: 0;
+}
+.prose [data-streamdown="mermaid"] {
+  overflow-x: auto;
+  padding: 16px;
+}
+.prose svg[id^="mermaid-"] {
+  min-width: 420px;
+  max-width: none;
+  height: auto;
+}
+.prose .katex-display {
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-block: 8px;
 }
 .prose p {
   margin-bottom: 14px;
@@ -594,7 +695,7 @@ textarea::placeholder {
 .chart-preview {
   display: flex;
   width: 100%;
-  max-width: 420px;
+  max-width: 100%;
   text-align: left;
   gap: 15px;
   padding: 18px;
@@ -603,7 +704,7 @@ textarea::placeholder {
   border-radius: 13px;
 }
 .chart-card {
-  max-width: 420px;
+  max-width: 100%;
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: 13px;
@@ -621,8 +722,20 @@ textarea::placeholder {
 }
 .chart-thumbnail {
   width: 100%;
-  min-height: 180px;
-  pointer-events: none;
+  min-height: 300px;
+}
+.chart-scroll {
+  max-width: 100%;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+}
+.chart-scroll-hint {
+  position: sticky;
+  left: 0;
+  padding: 8px 16px;
+  margin: 0;
+  font-size: 11px;
+  color: var(--muted);
 }
 .chart-preview > svg:first-child {
   color: var(--accent);
@@ -712,6 +825,14 @@ textarea::placeholder {
   position: relative;
   flex-shrink: 0;
 }
+.usage-wrap::after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  right: 0;
+  width: 100%;
+  height: 12px;
+}
 .usage-card {
   position: absolute;
   top: 43px;
@@ -726,6 +847,7 @@ textarea::placeholder {
   border-radius: 15px;
   box-shadow: 0 12px 42px #0002;
   font-size: 12px;
+  overscroll-behavior: contain;
 }
 .usage-card h2 {
   font-size: 13px;
@@ -831,6 +953,7 @@ details dl {
   bottom: 0;
   margin: 0;
   width: min(620px, 100%);
+  max-width: 100%;
   max-height: 100dvh;
   height: 100dvh;
   border-radius: 18px 0 0 18px;
@@ -838,6 +961,9 @@ details dl {
 }
 .panel .modal-inner {
   padding: 24px;
+}
+.chart-panel {
+  width: min(1240px, 100%);
 }
 .tabs {
   display: flex;
@@ -951,8 +1077,11 @@ caption {
   .sidebar {
     padding-inline: 14px;
   }
-  .workspace {
+  .conversation-content {
     padding-inline: 22px;
+  }
+  .composer-area {
+    width: calc(100% - 44px);
   }
   .topbar {
     padding-inline: 20px;
@@ -997,7 +1126,7 @@ caption {
   .top-dataset span {
     display: none;
   }
-  .workspace {
+  .conversation-content {
     padding: 0 18px;
   }
   .welcome {
@@ -1081,8 +1210,11 @@ caption {
   }
 }
 @media (max-width: 360px) {
-  .workspace {
+  .conversation-content {
     padding-inline: 12px;
+  }
+  .composer-area {
+    width: calc(100% - 24px);
   }
   .welcome h1 {
     font-size: 31px;

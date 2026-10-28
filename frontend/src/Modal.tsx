@@ -6,11 +6,13 @@ export default function Modal({
   children,
   close,
   panel = false,
+  wide = false,
 }: {
   title: string;
   children: ReactNode;
   close: () => void;
   panel?: boolean;
+  wide?: boolean;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
   useEffect(() => {
@@ -25,7 +27,7 @@ export default function Modal({
   return (
     <dialog
       ref={ref}
-      className={panel ? "modal panel" : "modal"}
+      className={`${panel ? "modal panel" : "modal"}${wide ? " chart-panel" : ""}`}
       aria-labelledby="dialog-title"
       onCancel={close}
       onKeyDown={(event) => {

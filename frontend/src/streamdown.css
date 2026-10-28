@@ -1,0 +1,21 @@
+/* Generate only Streamdown's utilities, with no global reset/preflight. */
+@layer theme, utilities;
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/utilities.css" layer(utilities) source(none);
+@source "../node_modules/streamdown/dist/*.js";
+
+@theme inline {
+  --color-background: var(--surface);
+  --color-foreground: var(--ink);
+  --color-border: var(--line);
+  --color-sidebar: var(--sidebar);
+  --color-muted: var(--sidebar);
+  --color-muted-foreground: var(--muted);
+  --color-primary: var(--accent);
+  --color-primary-foreground: var(--bg);
+  --color-accent: var(--accent-soft);
+  --color-accent-foreground: var(--ink);
+  --color-ring: var(--accent);
+  --color-popover: var(--surface);
+  --color-popover-foreground: var(--ink);
+}

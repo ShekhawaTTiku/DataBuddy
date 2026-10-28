@@ -1,7 +1,7 @@
 import { memo, useRef, useState } from "react";
 import createPlotlyComponent from "react-plotly.js/factory";
 import Plotly from "plotly.js-dist-min";
-import type { Layout, Data } from "plotly.js";
+import { chartGeometry, readableLayout, type Figure } from "./chartLayout";
 const Plot = createPlotlyComponent(Plotly);
 
 export const ChartThumbnail = memo(function ChartThumbnail({
@@ -11,31 +11,32 @@ export const ChartThumbnail = memo(function ChartThumbnail({
   json: string;
   dark: boolean;
 }) {
-  const figure = JSON.parse(json) as { data: Data[]; layout: Partial<Layout> };
+  const figure = JSON.parse(json) as Figure;
+  const geometry = chartGeometry(figure);
   return (
-    <div className="chart-thumbnail" aria-hidden="true">
-      <Plot
-        data={figure.data}
-        layout={{
-          ...figure.layout,
-          autosize: true,
-          width: undefined,
-          height: 180,
-          title: { text: "" },
-          showlegend: false,
-          margin: { l: 45, r: 15, t: 15, b: 35 },
-          paper_bgcolor: dark ? "#222A27" : "#FFFFFF",
-          plot_bgcolor: dark ? "#222A27" : "#FFFFFF",
-          font: {
-            family: "DM Sans, sans-serif",
-            color: dark ? "#F2F3ED" : "#252824",
-            size: 10,
-          },
-        }}
-        config={{ staticPlot: true, responsive: true, displayModeBar: false }}
-        useResizeHandler
-        style={{ width: "100%" }}
-      />
+    <div
+      className="chart-scroll chart-thumbnail"
+      tabIndex={geometry.dashboard ? 0 : undefined}
+      role="region"
+      aria-label="Chart preview"
+    >
+      <div style={{ minWidth: geometry.width || undefined }}>
+        <Plot
+          data={figure.data}
+          layout={readableLayout(figure, dark, true)}
+          config={{ staticPlot: true, responsive: true, displayModeBar: false }}
+          useResizeHandler
+          style={{
+            width: "100%",
+            height: readableLayout(figure, dark, true).height,
+          }}
+        />
+      </div>
+      {geometry.dashboard ? (
+        <p className="chart-scroll-hint">
+          {geometry.panels} panels · Scroll sideways for the full preview
+        </p>
+      ) : null}
     </div>
   );
 });
@@ -51,29 +52,17 @@ export default function Chart({
 }) {
   const graph = useRef<HTMLElement | null>(null);
   const [error, setError] = useState("");
-  const figure = JSON.parse(json) as { data: Data[]; layout: Partial<Layout> };
-  const layout: Partial<Layout> = {
-    ...figure.layout,
-    autosize: true,
-    width: undefined,
-    height: 360,
-    paper_bgcolor: dark ? "#222A27" : "#FFFFFF",
-    plot_bgcolor: dark ? "#222A27" : "#FFFFFF",
-    font: {
-      ...figure.layout?.font,
-      family: "DM Sans, sans-serif",
-      color: dark ? "#F2F3ED" : "#252824",
-    },
-    margin: { l: 55, r: 25, t: 55, b: 65 },
-  };
+  const figure = JSON.parse(json) as Figure;
+  const geometry = chartGeometry(figure);
+  const layout = readableLayout(figure, dark);
   async function png() {
     try {
       if (graph.current)
         await Plotly.downloadImage(graph.current, {
           format: "png",
           filename: "databuddy-chart",
-          width: 1200,
-          height: 800,
+          width: Math.max(1200, geometry.width),
+          height: geometry.height,
         });
     } catch {
       setError("The chart could not be exported. Try again.");
@@ -90,11 +79,11 @@ export default function Chart({
       });
       const data = JSON.stringify({
         data: figure.data,
-        layout: figure.layout,
+        layout: { ...layout, autosize: true, width: undefined },
       }).replace(/</g, "\\u003c");
       const blob = new Blob(
         [
-          `<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>DataBuddy chart</title><div id="chart"></div><script>${source.replace(/<\/script/gi, "<\\/script")}</script><script>const f=${data};Plotly.newPlot('chart',f.data,f.layout,{responsive:true});</script></html>`,
+          `<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>DataBuddy chart</title><style>body{margin:0;overflow-x:auto;background:${dark ? "#222A27" : "#FFFFFF"}}#chart{min-width:${geometry.width || 350}px;height:${geometry.height}px}</style><div id="chart"></div><script>${source.replace(/<\/script/gi, "<\\/script")}</script><script>const f=${data};Plotly.newPlot('chart',f.data,f.layout,{responsive:true});</script></html>`,
         ],
         { type: "text/html" },
       );
@@ -110,21 +99,39 @@ export default function Chart({
   }
   return (
     <section aria-label={description || "Analysis chart"}>
-      <Plot
-        data={figure.data}
-        layout={layout}
-        config={{ responsive: true, displaylogo: false, displayModeBar: false }}
-        useResizeHandler
-        style={{ width: "100%" }}
-        onInitialized={(_, el) => {
-          graph.current = el;
-        }}
-        onError={() =>
-          setError(
-            "The chart could not be displayed. Open Result data to inspect the values.",
-          )
-        }
-      />
+      {geometry.dashboard ? (
+        <p className="small muted">
+          Scroll sideways on smaller screens to view every panel.
+        </p>
+      ) : null}
+      <div
+        className="chart-scroll"
+        tabIndex={0}
+        role="region"
+        aria-label="Interactive chart"
+      >
+        <div style={{ minWidth: geometry.width || undefined }}>
+          <Plot
+            data={figure.data}
+            layout={layout}
+            config={{
+              responsive: true,
+              displaylogo: false,
+              displayModeBar: false,
+            }}
+            useResizeHandler
+            style={{ width: "100%", height: layout.height }}
+            onInitialized={(_, el) => {
+              graph.current = el;
+            }}
+            onError={() =>
+              setError(
+                "The chart could not be displayed. Open Result data to inspect the values.",
+              )
+            }
+          />
+        </div>
+      </div>
       <p className="chart-caption">
         {description ||
           "Chart from your data. Open Result data for the calculated values."}

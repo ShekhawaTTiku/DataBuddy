@@ -1,11 +1,11 @@
 # Working web app and deployment handoff
 
-Updated 2026-10-27 (Asia/Kolkata). The owner authorized the complete web implementation. It is built locally; no commit, push, hosting service creation or deployment has occurred.
+Updated 2026-10-28 (Asia/Kolkata). The dedicated web implementation was published to the owner's private repository on 2026-10-27. The current UX fixes are local and uncommitted; no hosting service creation or deployment has occurred.
 
 ## Final stack
 
 - React 19.3.1 + TypeScript 7.0.2 + Vite 8.3.5.
-- Custom CSS theme tokens, locally bundled DM Sans/Newsreader, Lucide icons and safe Markdown rendering.
+- Custom CSS theme tokens, locally bundled DM Sans/Newsreader and Lucide icons. Adapted Vercel AI Elements conversation/message primitives use `use-stick-to-bottom` 1.1.6. Streamdown 2.7.1 with math/Mermaid plugins renders answers; Tailwind 4.3.3 generates only the renderer's utilities without a global CSS reset.
 - Plotly.js 4.1.2 through react-plotly.js 4.1.0, loaded when a chart is needed. Standalone HTML export loads its additional source asset only on request.
 - Python 3.11, FastAPI 0.143.0 and Uvicorn 0.54.0. Existing pandas/NumPy/openpyxl/Plotly analysis and Groq/Gemini/Mistral roles retained.
 - Temporary in-process sessions, no database or accounts. Docker packages the API. Cloudflare Pages Free + Render Free remain the hosting target.
@@ -40,9 +40,16 @@ Upload CSV/XLSX (first worksheet), inspect the preview, choose a suggested task,
 
 The sidebar links to exchanges in the current conversation; it is not a saved-chat database. The UI shows short instructions, not the explanatory copy from the earlier mockup. Light/dark colors live in `frontend/src/styles.css`.
 
+Conversation history has a full-width scroll viewport above the prompt. New content follows the bottom until the user scrolls up; Latest message restores following. Reload starts at the latest exchange, including late-loaded charts. Autofocus runs after connection, reset, dataset readiness and exchange navigation, including touch devices as requested. It does not repeatedly steal focus during usage/detail interaction.
+
+Charts retain their generated height with per-row/per-column minimums for Cartesian dashboards, label margins and a separate title/legend area. Multi-panel previews and interactive charts use a readable minimum canvas width; narrow containers scroll horizontally. Interactive chart panels are wider on desktop. PNG and self-contained HTML exports use the same readable geometry. Generated chart prompts also request generous subplot spacing. This is a layout safeguard, not a guarantee that arbitrary generated figures or very long labels need no further adjustment.
+
+Streamdown handles tables, code copy/download controls, local KaTeX equations and strict-mode Mermaid diagrams. Raw HTML and embedded Markdown images are disabled. Code/table vertical content uses the conversation's scrolling; wide content can scroll sideways. The API still delivers completed answers through job polling, not token chunks. Processing feedback appears immediately on submission and stays visible while the finished answer is fetched. A streaming-ready renderer and resize-aware stickiness do not imply token streaming is implemented.
+
 ## Session and request policy
 
 - Random bearer token in tab-scoped `sessionStorage`; dataset/chat/usage remain in server memory. No private content in localStorage. Without browser storage, the token remains in memory until reload.
+- As requested, non-sensitive display preferences (theme, desktop sidebar and last selected analysis tab) use allowlisted localStorage values across reloads/new sessions. Explicit Chart/Result data/Calculation actions select their named view. Corrupt/blocked storage falls back safely. There are no model-selection, web-search or reasoning controls in this version; provider/model routing remains server configured.
 - 30 minutes of API inactivity expires a session. Cleanup runs every minute and before session lookups. Active work is not evicted mid-request. Closing a tab does not immediately clear server state; server restarts clear it.
 - At most four resident sessions and one upload/analysis operation at a time. Requests beyond capacity get actionable busy feedback. Run exactly one Uvicorn worker and one service instance: there is no shared session store.
 - The 20 MiB upload ceiling remains. Existing row/column/cell/expansion limits apply. Additional admission checks limit a parsed DataFrame to 48 MiB and all retained DataFrames to 72 MiB. These checks happen after parsing; they do not guarantee peak RSS below 512 MB for every allowed input.
@@ -57,7 +64,7 @@ Input feedback estimates UTF-16 text length / 4, warning above 600 estimated tok
 
 Offline calibration used real prompt builders with synthetic data/responses: three fresh sample exchanges estimated 1,837–2,057 tokens, or 8,725–8,945 when reserving each call's configured maximum output. Long-context cases estimated 9,315, or 16,203 including maximum outputs. The 12,000 baseline is a conservative **application planning threshold** between these envelopes, not measured live average usage or a free-quota guarantee. Reproduce with `python scripts/usage_estimate_check.py`; no provider calls occur.
 
-The Usage control opens on hover/focus and pins on click/tap. It reports observed attempts/fallbacks, provider/model input/output/total tokens, supplied reasoning/cache counts, timestamps, last-exchange/session totals and allowance. Failed calls can have unreported consumption. Totals are explicitly incomplete when metadata is missing. Groq's available response headers supply remaining daily requests, minute tokens and relative reset durations, with timestamps; Gemini/Mistral account quotas remain unavailable. No unlike quota windows are added together.
+The Usage control opens on hover/focus or tap. A pointer bridge and short leave delay keep the card open while moving into its details; moving outside both closes it. Keyboard focus stays usable until focus leaves or Escape is pressed; outside taps also close it. It reports observed attempts/fallbacks, provider/model input/output/total tokens, supplied reasoning/cache counts, timestamps, last-exchange/session totals and allowance. Failed calls can have unreported consumption. Totals are explicitly incomplete when metadata is missing. Groq's available response headers supply remaining daily requests, minute tokens and relative reset durations, with timestamps; Gemini/Mistral account quotas remain unavailable. No unlike quota windows are added together.
 
 ## Offline checks
 
@@ -66,6 +73,7 @@ python -m pip install -r requirements-web-dev.txt
 python -m pytest -q
 cd frontend
 npm ci
+npm test
 npm run build
 ```
 

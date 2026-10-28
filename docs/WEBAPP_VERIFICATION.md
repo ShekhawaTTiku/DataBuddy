@@ -1,5 +1,20 @@
 # Dedicated web app verification
 
+## UX fixes — 2026-10-28
+
+- Offline Python regression suite: **167 passed in 43.02 seconds**. The same upstream Starlette/httpx deprecation warning remains.
+- `cd frontend; npm test`: three focused regressions cover dashboard sizing/title/axis preservation and input immutability, single/overlay-axis charts, and allowlisted preferences with malformed/unavailable storage. Node 24 runs these TypeScript helpers directly.
+- TypeScript/Vite production build passes. Streamdown and chart rendering remain lazy: initial JavaScript is approximately 263 kB (83 kB gzip), answer rendering approximately 874 kB (269 kB gzip), plus on-demand diagram chunks; Plotly remains approximately 4.65 MB (1.42 MB gzip). The new Markdown/diagram capabilities add deferred assets rather than a new service or runtime budget.
+- npm audit reports zero vulnerabilities. The math/diagram dependency tree uses the directly pinned KaTeX 0.19.1 through an npm override, avoiding older transitive KaTeX versions. Browser equation/diagram checks validate this combination locally.
+- `scripts/verify_web_ui.js` is a Playwright CLI verification callback. It refuses to submit questions unless the verification-only server identifies itself via `/api/verification-fixture`. Run from the checkout with `scripts/browser_fixture.py` and Vite active, using `playwright-cli open http://127.0.0.1:5173` followed by `playwright-cli run-code --filename scripts/verify_web_ui.js`. Restart the fixture for a fresh message allowance when repeating checks.
+- Checks exercise hover-gap traversal, opening usage details and leaving the control/card, full-width gutter scrolling, following content and respecting scroll breakaway, Latest message, reload anchoring after lazy chart loading, initial/reset autofocus, theme/sidebar retention, formatted tables/code/equations/diagrams, and a real four-panel Plotly dashboard with synthetic data. Delayed request acknowledgement and delayed completed-answer fetching verify that loading remains visible until content arrives.
+- Mobile resize revealed that Plotly's root could collapse to zero height even while its SVG retained a height. An explicit root height fixes it; the browser check asserts visible height as well as figure geometry and horizontal scrolling. Multi-panel previews retain readable canvas dimensions and scroll sideways rather than compressing labels.
+- PNG download produced a 1200×780 image. The downloaded HTML embeds Plotly, renders with no external script tags and retains dashboard height. A separate browser harness fed incomplete Markdown in eight-character chunks and verified final table/code/math/Mermaid output plus disabled raw HTML/images; diagram theme follows the application's light/dark selection.
+- The inspected ready state has no axe violations after fixing the dataset button's accessible-name mismatch. Final production build, focused documentation links and diff whitespace passed. The synthetic fixture was then stopped and normal local API/UI startup verified with no provider inference calls.
+- The API still polls complete answers; this verifies a streaming-ready renderer and resizing behavior, not live provider token streaming. Basic execution checks remain **not a hardened security sandbox**. No live providers, commits, pushes or deployment are part of these fixes.
+
+## Original web implementation verification — 2026-10-27
+
 Date: 2026-10-27 (Asia/Kolkata). All new automated/browser verification used synthetic data and offline provider doubles. No live quota was consumed. Historical live-provider acceptance is recorded separately in LIVE_VERIFICATION.md.
 
 ## Automated and build checks

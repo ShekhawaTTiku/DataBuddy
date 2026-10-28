@@ -44,10 +44,32 @@ def code(*args, **kwargs):
 
 def chart(*args, **kwargs):
     usage()
+    if 'dashboard' in str(args).lower() or 'dashboard' in str(kwargs).lower():
+        return """result = df.groupby('Region')['Sales'].sum().reset_index()
+fig = make_subplots(rows=2, cols=2, subplot_titles=('Monthly Sales & Profit', 'Sales by Region', 'Discount vs Profit', 'Correlation Heatmap'))
+fig.add_trace(go.Scatter(x=[1, 2, 3, 4], y=[100, 200, 150, 300], name='Sales'), row=1, col=1)
+fig.add_trace(go.Scatter(x=[1, 2, 3, 4], y=[20, 40, 30, 50], name='Profit'), row=1, col=1)
+fig.add_trace(go.Bar(x=result['Sales'], y=result['Region'], orientation='h', name='Regional sales'), row=1, col=2)
+fig.add_trace(go.Scatter(x=[0, .1, .2, .4], y=[100, 60, 20, -10], mode='markers', name='Orders'), row=2, col=1)
+fig.add_trace(go.Heatmap(z=[[1, .3, -.4], [.3, 1, .2], [-.4, .2, 1]], x=['Sales', 'Quantity', 'Profit'], y=['Sales', 'Quantity', 'Profit'], colorscale='RdBu', colorbar=dict(title='Correlation')), row=2, col=2)
+fig.update_xaxes(title_text='Month', row=1, col=1)
+fig.update_yaxes(title_text='Amount (USD)', row=1, col=1)
+fig.update_xaxes(title_text='Sales (USD)', row=1, col=2)
+fig.update_xaxes(title_text='Discount', row=2, col=1)
+fig.update_yaxes(title_text='Profit (USD)', row=2, col=1)
+fig.update_layout(title='Synthetic Dashboard Overview', height=600)
+chart_description = 'Synthetic four-panel dashboard for offline layout verification'
+"""
     return "result = df.groupby('Region')['Sales'].sum().reset_index()\nfig = px.bar(result, x='Region', y='Sales', color_discrete_sequence=['#26736B'])\nchart_description = 'Sales by region'"
 
 def answer(profile, question, code, execution, **kwargs):
     usage()
+    if 'markdown' in question.lower():
+        return ("## Synthetic formatting check\n\n" +
+                "| Metric | Value |\n| --- | --- |\n| Total | 1000 |\n\n" +
+                "```python\nresult = df['Sales'].sum()\n```\n\n" +
+                "$$E = mc^2$$\n\n```mermaid\ngraph LR\nA[Upload] --> B[Analyze] --> C[Result]\n```\n\n" +
+                "\n\n".join(f"### Observation {i}\nSynthetic paragraph for scroll verification. " + "Readable content. " * 12 for i in range(1, 19)))
     if 'partial' in question.lower(): raise ProviderUnavailableError('Explanation unavailable.')
     return 'Total sales are **' + execution.result_text + '**.\n\nOpen Result data to inspect the calculation.'
 
@@ -65,4 +87,10 @@ conversation_state.call_memory_llm = lambda prompt: 'Synthetic verification memo
 
 if __name__ == '__main__':
     import uvicorn
-    uvicorn.run('api.main:app', host='127.0.0.1', port=8000, access_log=False)
+    from api.main import app
+
+    @app.get('/api/verification-fixture')
+    def verification_fixture():
+        return {'offline_fixture': True}
+
+    uvicorn.run(app, host='127.0.0.1', port=8000, access_log=False)

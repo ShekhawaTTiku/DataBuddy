@@ -42,7 +42,9 @@ RULES:
 - For distribution analysis: create a histogram or box plot using the provided libraries only.
 - For multi-chart dashboards (side-by-side comparison): use `make_subplots()` with `go` traces.
 - Apply `fig.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font=dict(family="Inter, sans-serif"))`.
-- Set reasonable figure height: single chart 500px, multi-chart 600px.
+- Set reasonable figure height: single chart at least 500px; multi-chart dashboards at least 300px per subplot row plus 180px for title, legend and labels. Use at least 490px per subplot column plus 160px for labels/colorbars.
+- For subplots, allow horizontal_spacing of at least 0.16 and vertical_spacing of at least 0.18 (reduce only when the grid size requires it). Set axis titles per subplot with update_xaxes/update_yaxes(row=..., col=...), not one ambiguous global title.
+- Place the overall title above the legend and subplot titles. Use a horizontal legend above the plotting area, generous margins and axis automargin=True with title standoff. Use short subplot titles; avoid duplicated legends and colorbars overlapping adjacent plots.
 - Do NOT call `fig.show()`. Do NOT write files. Do NOT use `print()`.
 - Use boolean masks instead of DataFrame.query/eval. Leave result tables as objects; do not call to_string.
 - Store a small aggregate table or Series of the values plotted in a variable named result, when practical. It must be actual computed values, not invented text.

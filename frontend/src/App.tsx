@@ -28,12 +28,20 @@ import {
   TrendingUp,
   X,
 } from "lucide-react";
-import Markdown from "react-markdown";
+import {
+  Conversation,
+  ConversationContent,
+  ConversationScrollButton,
+  Message,
+  MessageActions,
+} from "./ChatPrimitives";
+import { readPreferences, savePreferences } from "./preferences";
 import { ApiError, readSession, request, startSession } from "./api";
 import type { CallUsage, Session, Turn, Usage } from "./types";
 import Modal from "./Modal";
 import ResultTable from "./ResultTable";
 const Chart = lazy(() => import("./Chart"));
+const AnswerText = lazy(() => import("./AnswerText"));
 const ChartThumbnail = lazy(() =>
   import("./Chart").then((module) => ({ default: module.ChartThumbnail })),
 );
@@ -71,13 +79,21 @@ type Panel = {
 
 function UsageCard({ usage }: { usage: Usage }) {
   const [open, setOpen] = useState(false);
-  const [pinned, setPinned] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const keyboardFocus = useRef(false);
+  const closeTimer = useRef<ReturnType<typeof setTimeout> | undefined>(
+    undefined,
+  );
+  const cancelClose = () => clearTimeout(closeTimer.current);
+  const show = () => {
+    cancelClose();
+    setOpen(true);
+  };
+  useEffect(() => () => clearTimeout(closeTimer.current), []);
   useEffect(() => {
     if (!open) return;
     const close = (event: PointerEvent) => {
       if (!ref.current?.contains(event.target as Node)) {
-        setPinned(false);
         setOpen(false);
       }
     };
@@ -92,20 +108,31 @@ function UsageCard({ usage }: { usage: Usage }) {
     <div
       ref={ref}
       className="usage-wrap"
-      onMouseEnter={() => setOpen(true)}
+      onPointerDown={() => {
+        keyboardFocus.current = false;
+      }}
+      onFocusCapture={(e) => {
+        keyboardFocus.current = e.target.matches(":focus-visible");
+      }}
+      onMouseEnter={show}
       onMouseLeave={() => {
-        if (!pinned) setOpen(false);
+        cancelClose();
+        closeTimer.current = setTimeout(() => {
+          if (
+            !keyboardFocus.current ||
+            !ref.current?.contains(document.activeElement)
+          )
+            setOpen(false);
+        }, 180);
       }}
       onBlur={(e) => {
         if (!e.currentTarget.contains(e.relatedTarget)) {
           setOpen(false);
-          setPinned(false);
         }
       }}
       onKeyDown={(e) => {
         if (e.key === "Escape") {
           setOpen(false);
-          setPinned(false);
         }
       }}
     >
@@ -114,11 +141,8 @@ function UsageCard({ usage }: { usage: Usage }) {
         aria-label="Session usage"
         aria-expanded={open}
         aria-controls="usage-card"
-        onFocus={() => setOpen(true)}
-        onClick={() => {
-          setPinned(!pinned);
-          setOpen(true);
-        }}
+        onFocus={show}
+        onClick={show}
       >
         <SlidersHorizontal size={18} />
       </button>
@@ -264,21 +288,8 @@ function UsageCard({ usage }: { usage: Usage }) {
 }
 
 const MemoUsageCard = memo(UsageCard);
-const AnswerText = memo(function AnswerText({
-  answer,
-  failed,
-}: {
-  answer: string;
-  failed: boolean;
-}) {
-  return (
-    <div className={`prose ${failed ? "error-answer" : ""}`}>
-      <Markdown>{answer}</Markdown>
-    </div>
-  );
-});
-
 export default function App() {
+  const [preferences] = useState(readPreferences);
   const [session, setSession] = useState<Session | null>(null);
   const [error, setError] = useState("");
   const [expired, setExpired] = useState(false);
@@ -286,21 +297,23 @@ export default function App() {
   const [uploading, setUploading] = useState(false);
   const [sending, setSending] = useState(false);
   const [draft, setDraft] = useState("");
-  const [dark, setDark] = useState(false);
-  const [sidebar, setSidebar] = useState(true);
+  const [dark, setDark] = useState(preferences.dark);
+  const [sidebar, setSidebar] = useState(preferences.sidebar);
   const [mobileMenu, setMobileMenu] = useState(false);
   const [panel, setPanel] = useState<Panel | null>(null);
-  const [tab, setTab] = useState("Chart");
+  const [tab, setTab] = useState(preferences.analysisTab);
   const [copied, setCopied] = useState("");
   const [notice, setNotice] = useState("");
   const input = useRef<HTMLInputElement>(null);
   const composer = useRef<HTMLTextAreaElement>(null);
-  const bottom = useRef<HTMLDivElement>(null);
+  const [pendingQuestion, setPendingQuestion] = useState("");
+  const focusRequested = useRef(true);
   const submission = useRef(false);
   const uncertain = useRef<{ id: string; question: string } | null>(null);
   const poll = session?.job?.state === "running";
   const busy = connecting || uploading || sending || poll || expired;
   const dataset = session?.dataset;
+  const waitingForContent = !!pendingQuestion || poll;
   const highInput =
     Math.ceil(draft.length / 4) > (session?.usage.input_baseline || 600);
 
@@ -316,6 +329,7 @@ export default function App() {
     try {
       setSession(await startSession(fresh));
       setExpired(false);
+      focusRequested.current = true;
     } catch (e) {
       failure(e);
     } finally {
@@ -331,6 +345,17 @@ export default function App() {
       .querySelector('meta[name="theme-color"]')
       ?.setAttribute("content", dark ? "#19211E" : "#F7F6F2");
   }, [dark]);
+  useEffect(() => {
+    savePreferences({ dark, sidebar, analysisTab: tab });
+  }, [dark, sidebar, tab]);
+  useEffect(() => {
+    if (busy || panel || mobileMenu || !focusRequested.current) return;
+    const frame = requestAnimationFrame(() => {
+      composer.current?.focus({ preventScroll: true });
+      focusRequested.current = false;
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [busy, panel, mobileMenu]);
   useEffect(() => {
     if (!poll || expired) return;
     let cancelled = false;
@@ -362,9 +387,6 @@ export default function App() {
       clearTimeout(timer);
     };
   }, [poll, expired]);
-  useEffect(() => {
-    bottom.current?.scrollIntoView({ behavior: "instant", block: "end" });
-  }, [session?.turns.length, poll]);
   useEffect(() => {
     if (!draft && !poll) return;
     const warn = (e: BeforeUnloadEvent) => {
@@ -401,7 +423,7 @@ export default function App() {
       setSession(next);
       setNotice("Dataset ready.");
       setMobileMenu(false);
-      if (matchMedia("(pointer: fine)").matches) composer.current?.focus();
+      focusRequested.current = true;
     } catch (e) {
       failure(e);
     } finally {
@@ -419,6 +441,7 @@ export default function App() {
     setError("");
     try {
       setSession(await request<Session>(path, { method }));
+      focusRequested.current = true;
       setNotice(
         path === "/reset"
           ? "Chat cleared. Message allowance kept."
@@ -448,6 +471,7 @@ export default function App() {
     setError("");
     setNotice("");
     const question = draft.trim();
+    setPendingQuestion(question);
     const id =
       uncertain.current?.question === question
         ? uncertain.current.id
@@ -490,6 +514,7 @@ export default function App() {
     } finally {
       submission.current = false;
       setSending(false);
+      setPendingQuestion("");
     }
   }
   function analyze(turn: Turn, view: string) {
@@ -581,7 +606,13 @@ export default function App() {
             <a
               key={t.id}
               href={`#turn-${t.id}`}
-              onClick={() => setMobileMenu(false)}
+              onClick={() => {
+                setMobileMenu(false);
+                focusRequested.current = true;
+                requestAnimationFrame(() =>
+                  composer.current?.focus({ preventScroll: true }),
+                );
+              }}
             >
               {t.question}
             </a>
@@ -642,7 +673,7 @@ export default function App() {
             {dataset ? (
               <button
                 className="top-dataset"
-                aria-label="Preview dataset"
+                aria-label={`Preview dataset: ${dataset.filename}`}
                 onClick={() => setPanel({ type: "dataset" })}
               >
                 <Database size={16} />
@@ -655,154 +686,184 @@ export default function App() {
         <div
           className={`workspace ${session?.turns.length || poll ? "has-chat" : ""}`}
         >
-          <div className="conversation">
-            {!session?.turns.length && !poll ? (
-              <section className="welcome">
-                <span className="welcome-mark">
-                  <BarChart3 size={30} strokeWidth={1.6} />
-                </span>
-                <h1>
-                  {dataset ? "Ask about your data" : "Start with your data"}
-                </h1>
-                <p>
-                  {dataset
-                    ? `${number(dataset.rows)} rows ready to explore.`
-                    : "Upload a spreadsheet, then ask a question."}
-                </p>
-                {!dataset ? (
-                  <>
-                    <div className="welcome-actions">
-                      <button
-                        className="primary"
-                        disabled={busy || !session}
-                        onClick={() => input.current?.click()}
-                      >
-                        <Plus size={18} />
-                        Upload data
-                      </button>
-                      <button
-                        disabled={busy || !session}
-                        onClick={() => choose(undefined, true)}
-                      >
-                        Try sample data
-                      </button>
-                    </div>
-                    <span className="small muted">
-                      CSV or XLSX · Up to 20 MiB
+          <Conversation
+            className="conversation-region"
+            aria-label="Conversation history"
+          >
+            <ConversationContent
+              scrollClassName="conversation-scroll"
+              className="conversation-content"
+            >
+              <div className="conversation">
+                {!session?.turns.length && !waitingForContent ? (
+                  <section className="welcome">
+                    <span className="welcome-mark">
+                      <BarChart3 size={30} strokeWidth={1.6} />
                     </span>
-                  </>
-                ) : (
-                  <button
-                    className="text-button"
-                    onClick={() => setPanel({ type: "dataset" })}
-                  >
-                    <FileSpreadsheet size={16} />
-                    Preview dataset
-                    <ChevronRight size={14} />
-                  </button>
-                )}
-              </section>
-            ) : (
-              <>
-                <h1 className="sr-only">Data analysis conversation</h1>
-                {session?.turns.map((turn) => (
-                  <article
-                    className="exchange"
-                    id={`turn-${turn.id}`}
-                    key={turn.id}
-                  >
-                    <div className="question">
-                      <span className="sr-only">You: </span>
-                      {turn.question}
-                    </div>
-                    <div className="answer">
-                      <div className="answer-label">
-                        <span className="mini-mark">
-                          <BarChart3 size={14} />
+                    <h1>
+                      {dataset ? "Ask about your data" : "Start with your data"}
+                    </h1>
+                    <p>
+                      {dataset
+                        ? `${number(dataset.rows)} rows ready to explore.`
+                        : "Upload a spreadsheet, then ask a question."}
+                    </p>
+                    {!dataset ? (
+                      <>
+                        <div className="welcome-actions">
+                          <button
+                            className="primary"
+                            disabled={busy || !session}
+                            onClick={() => input.current?.click()}
+                          >
+                            <Plus size={18} />
+                            Upload data
+                          </button>
+                          <button
+                            disabled={busy || !session}
+                            onClick={() => choose(undefined, true)}
+                          >
+                            Try sample data
+                          </button>
+                        </div>
+                        <span className="small muted">
+                          CSV or XLSX · Up to 20 MiB
                         </span>
-                        DataBuddy
-                        {turn.status === "partial" ? (
-                          <span className="status-tag">Partial result</span>
-                        ) : null}
-                      </div>
-                      <AnswerText
-                        answer={turn.answer}
-                        failed={turn.status === "error"}
-                      />
-                      {turn.chart_json ? (
-                        <div className="chart-card">
+                      </>
+                    ) : (
+                      <button
+                        className="text-button"
+                        onClick={() => setPanel({ type: "dataset" })}
+                      >
+                        <FileSpreadsheet size={16} />
+                        Preview dataset
+                        <ChevronRight size={14} />
+                      </button>
+                    )}
+                  </section>
+                ) : (
+                  <>
+                    <h1 className="sr-only">Data analysis conversation</h1>
+                    {session?.turns.map((turn) => (
+                      <article
+                        className="exchange"
+                        id={`turn-${turn.id}`}
+                        key={turn.id}
+                      >
+                        <Message from="user" className="question">
+                          <span className="sr-only">You: </span>
+                          {turn.question}
+                        </Message>
+                        <Message from="assistant" className="answer">
+                          <div className="answer-label">
+                            <span className="mini-mark">
+                              <BarChart3 size={14} />
+                            </span>
+                            DataBuddy
+                            {turn.status === "partial" ? (
+                              <span className="status-tag">Partial result</span>
+                            ) : null}
+                          </div>
                           <Suspense
                             fallback={
-                              <p className="small muted">
-                                Loading chart preview…
-                              </p>
+                              <div className="prose answer-fallback">
+                                {turn.answer}
+                              </div>
                             }
                           >
-                            <ChartThumbnail
-                              json={turn.chart_json}
+                            <AnswerText
+                              answer={turn.answer}
+                              failed={turn.status === "error"}
                               dark={dark}
                             />
                           </Suspense>
-                          <button
-                            className="chart-preview"
-                            onClick={() => analyze(turn, "Chart")}
-                          >
-                            <BarChart3 size={30} />
-                            <span>
-                              <strong>
-                                {turn.chart_description || "Chart ready"}
-                              </strong>
-                              <small>Open interactive chart</small>
-                            </span>
-                            <ChevronRight size={20} />
-                          </button>
-                        </div>
-                      ) : null}
-                      <div className="answer-actions">
-                        {turn.result_text ? (
-                          <button onClick={() => analyze(turn, "Result data")}>
-                            Result data
-                          </button>
-                        ) : null}
-                        {turn.code ? (
-                          <button onClick={() => analyze(turn, "Calculation")}>
-                            Calculation
-                          </button>
-                        ) : null}
-                        <button
-                          className="icon-button"
-                          aria-label="Copy answer"
-                          onClick={() => copy(turn)}
-                        >
-                          {copied === turn.id ? (
-                            <Check size={16} />
-                          ) : (
-                            <Copy size={16} />
-                          )}
-                        </button>
+                          {turn.chart_json ? (
+                            <div className="chart-card">
+                              <Suspense
+                                fallback={
+                                  <p className="small muted">
+                                    Loading chart preview…
+                                  </p>
+                                }
+                              >
+                                <ChartThumbnail
+                                  json={turn.chart_json}
+                                  dark={dark}
+                                />
+                              </Suspense>
+                              <button
+                                className="chart-preview"
+                                onClick={() => analyze(turn, "Chart")}
+                              >
+                                <BarChart3 size={30} />
+                                <span>
+                                  <strong>
+                                    {turn.chart_description || "Chart ready"}
+                                  </strong>
+                                  <small>Open interactive chart</small>
+                                </span>
+                                <ChevronRight size={20} />
+                              </button>
+                            </div>
+                          ) : null}
+                          <MessageActions>
+                            {turn.result_text ? (
+                              <button
+                                onClick={() => analyze(turn, "Result data")}
+                              >
+                                Result data
+                              </button>
+                            ) : null}
+                            {turn.code ? (
+                              <button
+                                onClick={() => analyze(turn, "Calculation")}
+                              >
+                                Calculation
+                              </button>
+                            ) : null}
+                            <button
+                              className="icon-button"
+                              aria-label="Copy answer"
+                              onClick={() => copy(turn)}
+                            >
+                              {copied === turn.id ? (
+                                <Check size={16} />
+                              ) : (
+                                <Copy size={16} />
+                              )}
+                            </button>
+                          </MessageActions>
+                          {turn.memory_notice ? (
+                            <details className="memory-note">
+                              <summary>Memory notice</summary>
+                              <p>{turn.memory_notice}</p>
+                            </details>
+                          ) : null}
+                        </Message>
+                      </article>
+                    ))}
+                    {waitingForContent ? (
+                      <div className="exchange">
+                        <Message from="user" className="question">
+                          {session?.job?.state === "running"
+                            ? session.job.question
+                            : pendingQuestion}
+                        </Message>
+                        <p className="progress" role="status">
+                          <span className="progress-dot" />
+                          {poll
+                            ? session?.job?.stage || "Preparing answer"
+                            : "Sending question"}
+                          …
+                        </p>
                       </div>
-                      {turn.memory_notice ? (
-                        <details className="memory-note">
-                          <summary>Memory notice</summary>
-                          <p>{turn.memory_notice}</p>
-                        </details>
-                      ) : null}
-                    </div>
-                  </article>
-                ))}
-                {poll ? (
-                  <div className="exchange">
-                    <div className="question">{session?.job?.question}</div>
-                    <p className="progress" role="status">
-                      <span className="progress-dot" />
-                      {session?.job?.stage}…
-                    </p>
-                  </div>
-                ) : null}
-              </>
-            )}
-            <div ref={bottom} />
-          </div>
+                    ) : null}
+                  </>
+                )}
+              </div>
+            </ConversationContent>
+            <ConversationScrollButton />
+          </Conversation>
           <div className="composer-area">
             {!session?.turns.length && !poll ? (
               <div className="task-buttons" aria-label="Suggested tasks">
@@ -1005,6 +1066,7 @@ export default function App() {
           }
           close={() => setPanel(null)}
           panel={panel.type === "analysis" || panel.type === "dataset"}
+          wide={panel.type === "analysis" && tab === "Chart"}
         >
           {panel.type === "dataset" && dataset ? (
             <>

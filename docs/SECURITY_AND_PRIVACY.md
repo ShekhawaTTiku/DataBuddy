@@ -1,6 +1,6 @@
 # Security and privacy
 
-The dedicated API adds temporary bearer-token sessions, explicit CORS, body/concurrency/session limits and a 30-minute inactivity expiry. Only the token is stored in tab-scoped browser storage. [WEBAPP_SETUP.md](WEBAPP_SETUP.md) records the exact policy and its limits. Basic execution checks remain not a hardened sandbox.
+The dedicated API adds temporary bearer-token sessions, explicit CORS, body/concurrency/session limits and a 30-minute inactivity expiry. The token is stored in tab-scoped sessionStorage. At the owner's request, non-sensitive theme/sidebar/analysis-view preferences use a separate allowlisted localStorage entry; dataset rows, chat, prompts, keys and usage are never saved there. [WEBAPP_SETUP.md](WEBAPP_SETUP.md) records the exact policy and its limits. Basic execution checks remain not a hardened sandbox.
 
 ## Intended use
 
@@ -14,7 +14,7 @@ Trusted, non-sensitive personal demonstrations. These safeguards reduce obvious 
 - Worker starts with isolated Python mode, a fresh temporary working directory and a minimal environment without application API keys. It does not import config.py or search for .env.
 - Hard worker timeout; bounded stdout/stderr; bounded print capture; validated JSON replies. Parent-created pickle input is private internal transport, never a supported upload, and no worker pickle output is loaded by the parent.
 - Chart images/external geographic resources are rejected by basic validation. This is not a comprehensive browser/network sandbox.
-- Dynamic filename/suggestion HTML is escaped; columns use native table rendering. Model answers use normal Markdown without unsafe HTML.
+- Dynamic filename/suggestion HTML is escaped; columns use native table rendering. Model answers use Streamdown with sanitization, raw HTML disabled and embedded Markdown images suppressed. Mermaid uses strict security mode; math and diagram libraries are bundled locally. These rendering checks do not create a hardened execution sandbox.
 - .env variants and .streamlit/secrets.toml are ignored. .env.example contains placeholders. Provider errors exclude raw response bodies, and debug output excludes raw prompts/rows/results.
 
 ## What reaches model providers
@@ -33,4 +33,4 @@ Runner DataFrame/code files exist briefly in a unique temporary directory and ar
 
 ## Downloads and remaining limits
 
-HTML downloads include plotted values and load Plotly from its CDN; disclose this before sharing a chart. PNG export runs in the browser. Dependencies, provider quotas and model availability can change. A 20 MiB file can use substantially more memory after parsing/copying, so free hosting capacity is not guaranteed. No public deployment or hardening certification is implied.
+Dedicated-web-app HTML downloads include plotted values and embed Plotly for self-contained offline use; PNG export runs in the browser. The legacy Streamlit HTML export may use the Plotly CDN. Downloads contain the plotted dataset values and should be reviewed before sharing. Dependencies, provider quotas and model availability can change. A 20 MiB file can use substantially more memory after parsing/copying, so free hosting capacity is not guaranteed. No public deployment or hardening certification is implied.
