@@ -17,7 +17,7 @@ import telemetry
 from llm_clients import ProviderUnavailableError
 
 config.GROQ_API_KEY = config.GEMINI_API_KEY = config.MISTRAL_API_KEY = None
-os.environ['DATABUDDY_ORIGINS'] = 'http://localhost:5173,http://127.0.0.1:5173,http://127.0.0.1:4173'
+os.environ['DATABUDDY_ORIGINS'] = 'http://localhost:5173,http://127.0.0.1:5173,http://127.0.0.1:4173,http://127.0.0.1:5174,http://127.0.0.1:4174'
 config.EXEC_TIMEOUT_SECONDS = 20
 import executor
 executor.EXEC_TIMEOUT_SECONDS = 20
@@ -86,6 +86,16 @@ analyst.write_chart_insight = insight
 conversation_state.call_memory_llm = lambda prompt: 'Synthetic verification memory.'
 
 if __name__ == '__main__':
+    if '--write-ui-fixtures' in sys.argv:
+        import pandas as pd
+        folder = Path(__file__).resolve().parents[1] / 'output' / 'playwright'
+        folder.mkdir(parents=True, exist_ok=True)
+        pd.DataFrame({**{f'Metric {i}': [row+i for row in range(60)] for i in range(18)},
+                      'Region': ['North', 'South'] * 30, 'Category': ['A', 'B', 'C'] * 20,
+                      'Date': pd.date_range('2026-01-01', periods=60), 'Record ID': range(60)}).to_csv(folder / 'wide-suggestions.csv', index=False)
+        pd.DataFrame({'Region': ['North', 'South', 'North', 'South'],
+                      'Category': ['A', 'B', 'B', 'A']}).to_csv(folder / 'text-suggestions.csv', index=False)
+        raise SystemExit(0)
     import uvicorn
     from api.main import app
 
@@ -93,4 +103,4 @@ if __name__ == '__main__':
     def verification_fixture():
         return {'offline_fixture': True}
 
-    uvicorn.run(app, host='127.0.0.1', port=8000, access_log=False)
+    uvicorn.run(app, host='127.0.0.1', port=int(os.getenv('DATABUDDY_FIXTURE_PORT', '8000')), access_log=False)
