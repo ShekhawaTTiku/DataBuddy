@@ -33,6 +33,14 @@ export interface Dataset {
   warnings: string[];
   numeric: string[];
   categories: string[];
+  suggestion_columns?: SuggestionColumn[];
+}
+export interface SuggestionColumn {
+  name: string;
+  kind: "number" | "category" | "date" | "text";
+  distinct: number | null;
+  missing: number | null;
+  identifier: boolean;
 }
 export interface Turn {
   id: string;

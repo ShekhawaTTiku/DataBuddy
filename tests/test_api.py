@@ -84,6 +84,31 @@ def test_sample_preview_and_real_csv_xlsx_upload(client):
     assert response.json()['dataset']['preview'] == [[7], [8]]
 
 
+def test_suggestion_metadata_is_cached_and_follows_dataset_lifecycle(client, monkeypatch):
+    original = main.suggestion_columns
+    calls = []
+    def describe(frame):
+        calls.append(True)
+        return original(frame)
+    monkeypatch.setattr(main, 'suggestion_columns', describe)
+    h = new(client)
+    response = client.post('/api/sample', headers=h).json()
+    columns = response['dataset']['suggestion_columns']
+    assert {c['name']: c['kind'] for c in columns} == {
+        'Month': 'date', 'Region': 'category', 'Product': 'category', 'Sales': 'number', 'Units': 'number'}
+    assert response['usage']['used'] == 0
+    assert client.get('/api/session', headers=h).json()['dataset']['suggestion_columns'] == columns
+    assert client.post('/api/reset', headers=h).json()['dataset']['suggestion_columns'] == columns
+    assert len(calls) == 1
+    assert client.put('/api/dataset', headers={**h, 'X-Filename': 'bad.csv'}, content=b'a,b\n1\n').status_code == 422
+    assert client.get('/api/session', headers=h).json()['dataset']['suggestion_columns'] == columns
+    changed = client.put('/api/dataset', headers={**h, 'X-Filename': 'new.csv'}, content=b'Score\n4\n8\n').json()
+    assert [column['name'] for column in changed['dataset']['suggestion_columns']] == ['Score']
+    assert len(calls) == 2
+    assert client.delete('/api/dataset', headers=h).json()['dataset'] is None
+    assert client.app.state.sessions[h['Authorization'].split()[1]].suggestion_columns == []
+
+
 def test_invalid_upload_keeps_previous_dataset_and_releases_gate(client, monkeypatch):
     h = new(client); ready(client, h)
     bad = client.put('/api/dataset', headers={**h, 'X-Filename': 'invalid.csv'}, content=b'one,two\n1\n')

@@ -24,6 +24,7 @@ from conversation_state import ConversationState
 from databuddy import DataBuddy, AskResult
 from llm_clients import ProviderError
 import telemetry
+from api.dataset_metadata import suggestion_columns
 
 SESSION_TTL = 1800
 MAX_SESSIONS = 4
@@ -40,6 +41,7 @@ class Session:
     touched: float = field(default_factory=time.monotonic)
     buddy: DataBuddy | None = None
     frame_bytes: int = 0
+    suggestion_columns: list = field(default_factory=list)
     turns: list = field(default_factory=list)
     usage: list = field(default_factory=list)
     used: int = 0
@@ -153,7 +155,8 @@ def create_app(buddy_factory=DataBuddy):
                 numeric = [str(c) for c in d.df.select_dtypes(include="number").columns]
                 categories = [str(c) for c in d.df.columns if str(c) not in numeric]
                 dataset = {"filename": d.filename, "rows": len(d.df), "columns": list(map(str, d.df.columns)),
-                           "preview": rows, "warnings": d.warnings, "numeric": numeric, "categories": categories}
+                           "preview": rows, "warnings": d.warnings, "numeric": numeric, "categories": categories,
+                           "suggestion_columns": s.suggestion_columns}
             calls = [c for u in s.usage for c in u["calls"]]
             return {"dataset": dataset, "turns": s.turns, "job": s.job,
                     "usage": {"used": s.used, "allowance": s.allowance, "remaining": max(0, s.allowance - s.used),
@@ -198,8 +201,10 @@ def create_app(buddy_factory=DataBuddy):
                 total = sum(x.frame_bytes for x in sessions.values() if x is not s)
             if size > MAX_FRAME_BYTES or size + total > MAX_TOTAL_FRAME_BYTES:
                 raise HTTPException(413, "This dataset needs more memory than the demo allows. Use fewer rows or columns.")
+            columns = suggestion_columns(buddy.dataset.df)
             with s.lock:
                 s.buddy, s.frame_bytes, s.turns, s.job = buddy, size, [], None
+                s.suggestion_columns = columns
         except ValueError as exc:
             raise HTTPException(422, str(exc)) from None
         finally:
@@ -253,6 +258,7 @@ def create_app(buddy_factory=DataBuddy):
         with s.lock:
             idle(s)
             s.buddy, s.frame_bytes, s.turns, s.job = None, 0, [], None
+            s.suggestion_columns = []
         return snapshot(s)
 
     @app.post("/api/reset")
