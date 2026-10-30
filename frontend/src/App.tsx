@@ -20,6 +20,7 @@ import {
   Moon,
   Paperclip,
   Plus,
+  Square,
   SlidersHorizontal,
   Sparkles,
   Sun,
@@ -34,8 +35,14 @@ import {
   MessageActions,
 } from "./ChatPrimitives";
 import { readPreferences, savePreferences } from "./preferences";
-import { ApiError, readSession, request, startSession } from "./api";
-import type { CallUsage, Session, Turn, Usage } from "./types";
+import {
+  ApiError,
+  readSession,
+  request,
+  startSession,
+  watchResponse,
+} from "./api";
+import type { CallUsage, Session, Turn, Usage, ResponseUpdate } from "./types";
 import Modal from "./Modal";
 import ResultTable from "./ResultTable";
 import TaskSuggestions from "./TaskSuggestions";
@@ -283,6 +290,7 @@ export default function App() {
   const input = useRef<HTMLInputElement>(null);
   const composer = useRef<HTMLTextAreaElement>(null);
   const [pendingQuestion, setPendingQuestion] = useState("");
+  const [response, setResponse] = useState<ResponseUpdate | null>(null);
   const focusRequested = useRef(true);
   const submission = useRef(false);
   const uncertain = useRef<{ id: string; question: string } | null>(null);
@@ -290,6 +298,33 @@ export default function App() {
   const busy = connecting || uploading || sending || poll || expired;
   const dataset = session?.dataset;
   const waitingForContent = !!pendingQuestion || poll;
+  const jobId = session?.job?.id;
+  const activeResponse = poll && response?.id === jobId ? response : null;
+  const streamingTurn: Turn | null =
+    activeResponse &&
+    (activeResponse.answer ||
+      activeResponse.evidence?.result_text ||
+      activeResponse.evidence?.chart_json)
+      ? {
+          id: activeResponse.id,
+          question: session?.job?.question || "",
+          answer: activeResponse.answer,
+          status: activeResponse.status,
+          chart_json: null,
+          chart_description: null,
+          result_text: null,
+          code: null,
+          memory_notice: null,
+          visualization_suggestion: null,
+          ...activeResponse.evidence,
+        }
+      : null;
+  const visibleTurns = streamingTurn
+    ? [
+        ...(session?.turns || []).filter((t) => t.id !== streamingTurn.id),
+        streamingTurn,
+      ]
+    : session?.turns || [];
   const highInput =
     Math.ceil(draft.length / 4) > (session?.usage.input_baseline || 600);
 
@@ -333,36 +368,57 @@ export default function App() {
     return () => cancelAnimationFrame(frame);
   }, [busy, panel, mobileMenu]);
   useEffect(() => {
-    if (!poll || expired) return;
+    if (!poll || expired || !jobId) return;
     let cancelled = false;
+    const controller = new AbortController();
     let timer: ReturnType<typeof setTimeout>;
     async function update() {
       try {
-        const progress = await request<Pick<Session, "job">>("/job");
-        if (cancelled) return;
-        if (progress.job?.state === "running") {
-          setSession((current) =>
-            current ? { ...current, job: progress.job } : current,
-          );
-          timer = setTimeout(update, 1100);
-        } else {
-          const next = await readSession();
-          if (!cancelled) setSession(next);
-        }
+        await watchResponse(
+          jobId!,
+          (next) => {
+            if (cancelled) return;
+            setResponse((previous) => ({
+              ...next,
+              evidence:
+                next.evidence ??
+                (previous?.id === next.id ? previous.evidence : {}),
+            }));
+            setSession((current) =>
+              current?.job?.id === next.id
+                ? { ...current, job: { ...next.job, state: "running" } }
+                : current,
+            );
+          },
+          controller.signal,
+        );
+        if (!cancelled) setSession(await readSession());
         if (!cancelled) setError("");
       } catch (e) {
         if (!cancelled) {
-          failure(e);
-          timer = setTimeout(update, 4000);
+          try {
+            const progress = await request<Pick<Session, "job">>("/job");
+            if (cancelled) return;
+            if (progress.job?.state !== "running") {
+              setSession(await readSession());
+              setError("");
+              return;
+            }
+            setError("Response connection interrupted. Reconnecting…");
+          } catch (recoveryError) {
+            if (!cancelled) failure(recoveryError);
+          }
+          if (!cancelled) timer = setTimeout(update, 2500);
         }
       }
     }
-    timer = setTimeout(update, 600);
+    void update();
     return () => {
       cancelled = true;
+      controller.abort();
       clearTimeout(timer);
     };
-  }, [poll, expired]);
+  }, [poll, expired, jobId]);
   useEffect(() => {
     if (!draft && !poll) return;
     const warn = (e: BeforeUnloadEvent) => {
@@ -491,6 +547,30 @@ export default function App() {
       submission.current = false;
       setSending(false);
       setPendingQuestion("");
+    }
+  }
+  async function stopResponse() {
+    if (!jobId) return;
+    try {
+      const result = await request<{ stopping: boolean }>(
+        `/jobs/${jobId}/cancel`,
+        { method: "POST" },
+      );
+      if (result.stopping)
+        setSession((current) =>
+          current?.job?.id === jobId
+            ? {
+                ...current,
+                job: {
+                  ...current.job,
+                  stop_requested: true,
+                  stage: "Stopping response",
+                },
+              }
+            : current,
+        );
+    } catch (e) {
+      failure(e);
     }
   }
   function analyze(turn: Turn, view: string) {
@@ -720,7 +800,7 @@ export default function App() {
                 ) : (
                   <>
                     <h1 className="sr-only">Data analysis conversation</h1>
-                    {session?.turns.map((turn) => (
+                    {visibleTurns.map((turn) => (
                       <article
                         className="exchange"
                         id={`turn-${turn.id}`}
@@ -739,20 +819,33 @@ export default function App() {
                             {turn.status === "partial" ? (
                               <span className="status-tag">Partial result</span>
                             ) : null}
+                            {turn.status === "stopped" ? (
+                              <span className="status-tag">Stopped</span>
+                            ) : null}
                           </div>
-                          <Suspense
-                            fallback={
-                              <div className="prose answer-fallback">
-                                {turn.answer}
-                              </div>
-                            }
-                          >
-                            <AnswerText
-                              answer={turn.answer}
-                              failed={turn.status === "error"}
-                              dark={dark}
-                            />
-                          </Suspense>
+                          {turn.answer ? (
+                            <Suspense
+                              fallback={
+                                <div className="prose answer-fallback">
+                                  {turn.answer}
+                                </div>
+                              }
+                            >
+                              <AnswerText
+                                answer={turn.answer}
+                                failed={turn.status === "error"}
+                                dark={dark}
+                                streaming={
+                                  turn.id === activeResponse?.id &&
+                                  !activeResponse.answer_done
+                                }
+                              />
+                            </Suspense>
+                          ) : (
+                            <p className="small muted">
+                              Your result is ready. Preparing the explanation…
+                            </p>
+                          )}
                           {turn.chart_json ? (
                             <div className="chart-card">
                               <Suspense
@@ -820,11 +913,19 @@ export default function App() {
                     ))}
                     {waitingForContent ? (
                       <div className="exchange">
-                        <Message from="user" className="question">
-                          {session?.job?.state === "running"
-                            ? session.job.question
-                            : pendingQuestion}
-                        </Message>
+                        {!streamingTurn ? (
+                          <Message from="user" className="question">
+                            {session?.job?.state === "running"
+                              ? session.job.question
+                              : pendingQuestion}
+                          </Message>
+                        ) : null}
+                        {activeResponse?.notice &&
+                        !activeResponse.answer_done ? (
+                          <p className="small muted" role="status">
+                            {activeResponse.notice}
+                          </p>
+                        ) : null}
                         <p className="progress" role="status">
                           <span className="progress-dot" />
                           {poll
@@ -930,14 +1031,26 @@ export default function App() {
                     <span className="composer-file">{dataset.filename}</span>
                   ) : null}
                 </div>
-                <button
-                  className="send"
-                  type="submit"
-                  aria-label="Send message"
-                  disabled={busy || !session || session.usage.remaining === 0}
-                >
-                  <ArrowUp size={21} />
-                </button>
+                {poll && !session?.job?.answer_done ? (
+                  <button
+                    className="send"
+                    type="button"
+                    aria-label="Stop response"
+                    disabled={session?.job?.stop_requested}
+                    onClick={() => void stopResponse()}
+                  >
+                    <Square size={18} fill="currentColor" />
+                  </button>
+                ) : (
+                  <button
+                    className="send"
+                    type="submit"
+                    aria-label="Send message"
+                    disabled={busy || !session || session.usage.remaining === 0}
+                  >
+                    <ArrowUp size={21} />
+                  </button>
+                )}
               </div>
             </form>
             {highInput ? (
