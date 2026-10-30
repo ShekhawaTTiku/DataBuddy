@@ -6,6 +6,7 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 import config
+import response_stream
 from llm_clients import ProviderError, ProviderUnavailableError, call_conversation_llm, call_explanation_llm, classify_message
 
 _PROMPTS_DIR = Path(__file__).parent / "prompts"
@@ -48,7 +49,10 @@ def route_message(question: str, columns: list[str], conversation: str,
         return {"route": "explain_analysis", "reply": ""}
 
     template = (_PROMPTS_DIR / "request_router.txt").read_text(encoding="utf-8")
-    prompt = _fill(template, columns=", ".join(columns)[:config.MAX_CONTEXT_CHARS],
+    reply_instruction = ("For every route, set reply to an empty string. Classify only; the application will generate the answer separately."
+                         if response_stream.current() else
+                         "For conversation, write a concise, helpful user-facing answer in reply. Use conversation context and do not invent personal facts. For other routes set reply to an empty string.")
+    prompt = _fill(template, reply_instruction=reply_instruction, columns=", ".join(columns)[:config.MAX_CONTEXT_CHARS],
                    conversation=(conversation or "None yet.")[:config.MAX_CONTEXT_CHARS],
                    question=question, has_analysis=str(has_analysis_context), has_chart=str(has_chart_context))
     try:
@@ -56,7 +60,7 @@ def route_message(question: str, columns: list[str], conversation: str,
         route = result.get("route")
         if route in {"analysis", "conversation", "explain_analysis", "clock",
                      "visualization", "modify_chart"}:
-            return {"route": route, "reply": str(result.get("reply") or "")[:config.MAX_MESSAGE_CHARS]}
+            return {"route": route, "reply": "" if response_stream.current() else str(result.get("reply") or "")[:config.MAX_MESSAGE_CHARS]}
     except ProviderError as exc:
         if not isinstance(exc, ProviderUnavailableError):
             raise
