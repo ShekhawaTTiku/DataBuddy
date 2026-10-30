@@ -14,6 +14,7 @@ import config
 import conversation_state
 import message_handler
 import telemetry
+import response_stream
 from llm_clients import ProviderUnavailableError
 
 config.GROQ_API_KEY = config.GEMINI_API_KEY = config.MISTRAL_API_KEY = None
@@ -37,6 +38,8 @@ def route(question, **kwargs):
     usage('Mistral'); time.sleep(.3)
     if 'provider failure' in question.lower():
         raise ProviderUnavailableError('The provider is unavailable. Try again later.')
+    if 'hello' in question.lower():
+        return {'route': 'conversation', 'reply': ''}
     return {'route': 'visualization' if 'chart' in question.lower() else 'analysis'}
 
 def code(*args, **kwargs):
@@ -62,28 +65,50 @@ chart_description = 'Synthetic four-panel dashboard for offline layout verificat
 """
     return "result = df.groupby('Region')['Sales'].sum().reset_index()\nfig = px.bar(result, x='Region', y='Sales', color_discrete_sequence=['#26736B'])\nchart_description = 'Sales by region'"
 
+def incremental(text):
+    if response_stream.current():
+        for start in range(0, len(text), 24):
+            response_stream.text(text[start:start + 24])
+            time.sleep(.08)
+    return text
+
+
 def answer(profile, question, code, execution, **kwargs):
     usage()
+    if 'fallback' in question.lower():
+        response_stream.text('An unfinished primary explanation')
+        time.sleep(.8)
+        response_stream.reset_answer('The explanation was interrupted. Restarting with the backup provider.')
+        telemetry.event('fallback')
+        usage('Mistral')
+        return incremental('Backup explanation: the computed total is **' + execution.result_text + '**.')
     if 'markdown' in question.lower():
-        return ("## Synthetic formatting check\n\n" +
+        return incremental(("## Synthetic formatting check\n\n" +
                 "| Metric | Value |\n| --- | --- |\n| Total | 1000 |\n\n" +
                 "```python\nresult = df['Sales'].sum()\n```\n\n" +
                 "$$E = mc^2$$\n\n```mermaid\ngraph LR\nA[Upload] --> B[Analyze] --> C[Result]\n```\n\n" +
-                "\n\n".join(f"### Observation {i}\nSynthetic paragraph for scroll verification. " + "Readable content. " * 12 for i in range(1, 19)))
+                "\n\n".join(f"### Observation {i}\nSynthetic paragraph for scroll verification. " + "Readable content. " * 12 for i in range(1, 19))))
     if 'partial' in question.lower(): raise ProviderUnavailableError('Explanation unavailable.')
-    return 'Total sales are **' + execution.result_text + '**.\n\nOpen Result data to inspect the calculation.'
+    return incremental('Total sales are **' + execution.result_text + '**.\n\nOpen Result data to inspect the calculation.')
 
 def insight(profile, question, code, execution):
     usage()
     if 'partial' in question.lower(): raise ProviderUnavailableError('Explanation unavailable.')
-    return '**South** has sales of **600**, compared with **400** in North.'
+    time.sleep(2)  # Makes ready-chart-before-text behavior observable in browser checks.
+    return incremental('**South** has sales of **600**, compared with **400** in North.')
+
+
+def memory(prompt):
+    time.sleep(.8)
+    return 'Synthetic verification memory.'
 
 message_handler.route_message = route
 analyst.generate_code = code
 analyst.generate_chart_code = chart
 analyst.write_answer = answer
 analyst.write_chart_insight = insight
-conversation_state.call_memory_llm = lambda prompt: 'Synthetic verification memory.'
+message_handler.answer_conversation = lambda *args: incremental('Hello! I can help explore your dataset, calculate results and create charts. ' * (20 if 'slow' in str(args).lower() else 4))
+conversation_state.call_memory_llm = memory
 
 if __name__ == '__main__':
     if '--write-ui-fixtures' in sys.argv:
