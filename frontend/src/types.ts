@@ -70,5 +70,18 @@ export interface Session {
     state: "running" | "done";
     stage: string;
     question?: string;
+    answer_done?: boolean;
+    stop_requested?: boolean;
   } | null;
+}
+
+export interface ResponseUpdate {
+  id: string;
+  version: number;
+  job: NonNullable<Session["job"]>;
+  answer: string;
+  status: string;
+  answer_done: boolean;
+  notice: string;
+  evidence?: Partial<Turn>;
 }
