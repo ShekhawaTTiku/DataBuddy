@@ -1,6 +1,6 @@
 # Working web app and deployment handoff
 
-Updated 2026-10-28 (Asia/Kolkata). The dedicated web implementation and today's UX/suggestion fixes are published to the owner's private DataBuddynew repository in reviewed batches. Local `main` now tracks that repository's `origin/main`; see [the publication checkpoint](GITHUB_CHECKPOINT.md). No hosting service creation or deployment has occurred.
+Updated 2026-10-30 (Asia/Kolkata). The owner authorized progressive answers and file-by-file publication to private DataBuddynew. Local `main` tracks that repository's `origin/main`; see [the publication checkpoint](GITHUB_CHECKPOINT.md). No hosting service creation or deployment is included.
 
 ## Final stack
 
@@ -48,7 +48,7 @@ Conversation history has a full-width scroll viewport above the prompt. New cont
 
 Charts retain their generated height with per-row/per-column minimums for Cartesian dashboards, label margins and a separate title/legend area. Multi-panel previews and interactive charts use a readable minimum canvas width; narrow containers scroll horizontally. Interactive chart panels are wider on desktop. PNG and self-contained HTML exports use the same readable geometry. Generated chart prompts also request generous subplot spacing. This is a layout safeguard, not a guarantee that arbitrary generated figures or very long labels need no further adjustment.
 
-Streamdown handles tables, code copy/download controls, local KaTeX equations and strict-mode Mermaid diagrams. Raw HTML and embedded Markdown images are disabled. Code/table vertical content uses the conversation's scrolling; wide content can scroll sideways. The API still delivers completed answers through job polling, not token chunks. Processing feedback appears immediately on submission and stays visible while the finished answer is fetched. A streaming-ready renderer and resize-aware stickiness do not imply token streaming is implemented.
+Streamdown handles progressive answers, tables, code copy/download controls, local KaTeX equations and strict-mode Mermaid diagrams. Raw HTML and embedded Markdown images remain disabled. The API now delivers incremental chat/explanation text through authenticated fetch/SSE. Verified result data/charts can appear before narration finishes, and answers stay readable during the subsequent memory update. Send remains disabled until finalization. Stop cancels server work, preserves completed evidence and records one explicitly stopped exchange; its bounded memory update still runs. Reconnect/reload attaches to the existing job without resubmission. Ordinary web chat now uses separate routing and answer calls. See [streaming and recovery](STREAMING.md) for bounds, fallback, accounting and limitations.
 
 ## Session and request policy
 
@@ -58,7 +58,7 @@ Streamdown handles tables, code copy/download controls, local KaTeX equations an
 - At most four resident sessions and one upload/analysis operation at a time. Requests beyond capacity get actionable busy feedback. Run exactly one Uvicorn worker and one service instance: there is no shared session store.
 - The 20 MiB upload ceiling remains. Existing row/column/cell/expansion limits apply. Additional admission checks limit a parsed DataFrame to 48 MiB and all retained DataFrames to 72 MiB. These checks happen after parsing; they do not guarantee peak RSS below 512 MB for every allowed input.
 - Request bodies and upload duration are bounded. Analysis runs in the existing disposable worker with bounded output/time. Actual progress stages are polled via the small `/api/job` response; full results are fetched once on completion.
-- A request ID prevents duplicate charges/calls on resubmission. The browser retains the same ID when the outcome of a network failure is uncertain. Concurrent mutations are blocked while work is running.
+- A request ID prevents duplicate application jobs/message charges on resubmission. The browser retains the same ID when the outcome of a network failure is uncertain. Streaming reconnect is read-only; an interrupted delivery does not resubmit. Concurrent mutations remain blocked while the answer and memory are running. This does not guarantee zero provider consumption after an ambiguous provider timeout.
 
 ## Allowance and usage
 
@@ -93,7 +93,7 @@ No deployment commands below have been executed. Deployment still requires the o
 2. **Cloudflare Pages:** project root `frontend`, build command `npm ci && npm run build`, output `dist`, Node 24. Set `VITE_API_URL=https://<actual-render-service>.onrender.com` at build time. Do not append `/api`. This value is public and contains no secret. No Pages Functions, database or paid service is needed.
 3. **Origins:** set each side's actual deployed URL and rebuild the frontend after changing its API origin. Cross-origin authorization uses bearer headers rather than third-party cookies. CORS permits only explicit configured origins. It is not authentication or protection against arbitrary non-browser clients.
 4. **Headers:** `frontend/public/_headers` supplies Cloudflare CSP, no framing, referrer and browser-permission rules. CSP permits the Render domain family for connections, inline styles and Plotly's full distribution evaluation needs. Narrow `connect-src` to the actual API origin when known. A different API domain requires updating CSP too. Provider keys, `.env`, private files, tests and browser fixtures are excluded from the Docker context by an allowlist.
-5. **Hosting acceptance:** build/run the image and repeat sample, upload, chart, export, expiry/restart and provider-fallback smoke checks. Run the resource probe inside an equivalent Linux environment with the host's 512 MB/0.1 CPU constraints; validate the 30-second worker limit. Check a cold start and frontend retry feedback. Do not assume the Linux wheel resolution check proves runtime compatibility.
+5. **Hosting acceptance:** build/run the image and repeat sample, upload, streaming chat/narration, early chart/result, export, Stop, reconnect, expiry/restart and provider-fallback smoke checks. Verify text arrives through the real proxy before completion and that buffering/compression/timeouts do not accumulate the answer. Run the resource probe inside an equivalent Linux environment with the host's 512 MB/0.1 CPU constraints; validate the 30-second worker limit. Check a cold start and frontend retry feedback. Do not assume the Linux wheel resolution check proves runtime compatibility.
 
 The frontend can load while Render wakes up; the API can sleep after inactivity and may take roughly a minute to return. Waking/unavailable feedback, retry and session-expired/reupload flows are implemented. Free-provider limits and Render resource limits can interrupt a session. No paid fallback is enabled.
 
