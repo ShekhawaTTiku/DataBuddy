@@ -1,5 +1,15 @@
 # Private GitHub checkpoint
 
+## Streaming implementation, file-by-file publication — 2026-10-30
+
+The owner explicitly authorized implementing the agreed streaming behavior and updating private [ShekhawaTTiku/DataBuddynew](https://github.com/ShekhawaTTiku/DataBuddynew) file by file. Starting checkpoint: 83c4c24 on local main, tracking origin/main. No deployment or hosting change is included.
+
+Every changed/new eligible file is staged alone, committed alone and pushed separately to origin/main after full application verification. Publication order follows core delivery/providers/routing/execution, API, frontend, Docker packaging, offline verification and documentation. Individual intermediate commits are organizational checkpoints; the final documentation commit is the complete verified release. Its hash is read from repository history rather than embedded inside itself.
+
+Release checks: **183 offline Python tests**, ten frontend tests, production build, dependency consistency, zero production npm audit vulnerabilities, actual installed SDKs through fake HTTP transports, real local HTTP streaming/reconnect/cancel and guarded desktop/mobile browser acceptance. Basic execution checks remain **not a hardened security sandbox**. Actual new provider inference, Linux containers and hosted proxy/resource checks remain unverified.
+
+Before publication, verify the exact private destination and audit candidate files/new history for configured credentials and recognizable token/private-key formats. After each individual push, verify remote main against the new local commit and confirm the existing .gitignore blob is unchanged. Final acceptance compares the full GitHub tree and file blobs, checks local/remote branch identity and a clean working tree, and rechecks private/generated exclusions. Real .env/settings, uploads/datasets, saved state, dependency/build directories, browser artifacts and local audit/recovery files stay local. The original DataBuddy backup is not edited.
+
 ## October 28 publication and corrected local main — 2026-10-28
 
 The owner explicitly authorized publishing today's changes to private [ShekhawaTTiku/DataBuddynew](https://github.com/ShekhawaTTiku/DataBuddynew) in logical batches, without changes to `.gitignore` or uploads of irrelevant/private/generated files.
