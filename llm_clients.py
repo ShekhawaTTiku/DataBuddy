@@ -6,6 +6,7 @@ import time
 
 import config
 import telemetry
+import response_stream
 
 _deadline = ContextVar("databuddy_provider_deadline", default=None)
 
@@ -71,15 +72,19 @@ def _retry(call, provider: str):
     """The callable receives its remaining per-attempt timeout in seconds."""
     deadline = _deadline.get() or (time.monotonic() + config.REQUEST_TIMEOUT_SECONDS)
     for attempt in range(config.PROVIDER_MAX_RETRIES + 1):
+        response_stream.check_cancelled()
         remaining = deadline - time.monotonic()
         if remaining <= 0:
             raise ProviderUnavailableError("The request time limit was reached. Try a simpler question.")
         try:
             telemetry.event("attempt", provider=provider)
-            return call(min(config.PROVIDER_TIMEOUT_SECONDS, remaining))
-        except ProviderError:
+            result = call(min(config.PROVIDER_TIMEOUT_SECONDS, remaining))
+            response_stream.check_cancelled()
+            return result
+        except (ProviderError, response_stream.ResponseCancelled):
             raise
         except Exception as exc:
+            response_stream.check_cancelled()
             telemetry.record_limits(getattr(getattr(exc, "response", None), "headers", None), provider)
             if not _is_transient(exc):
                 raise ProviderError(_safe_error(exc, provider)) from None
@@ -99,8 +104,63 @@ def _text_content(content) -> str:
     return ""
 
 
+def _consume_stream(chunks, provider, model):
+    """Deliver only answer content; retain a single usage report per attempt."""
+    text = ""
+    usage_response = None
+    finished = False
+    deadline = _deadline.get()
+    delivery = response_stream.current()
+    bind = getattr(delivery.cancelled, "bind", None) if delivery else None
+    if bind:
+        bind(getattr(chunks, "close", None))
+    try:
+        for chunk in chunks:
+            response_stream.check_cancelled()
+            if deadline and time.monotonic() >= deadline:
+                raise ProviderUnavailableError("The response time limit was reached.")
+            data = getattr(chunk, "data", chunk)
+            if getattr(data, "usage", None) is not None:
+                usage_response = data
+            elif getattr(getattr(data, "x_groq", None), "usage", None) is not None:
+                usage_response = data.x_groq
+            choices = getattr(data, "choices", None) or []
+            for choice in choices[:1]:
+                delta = getattr(choice, "delta", None)
+                value = _text_content(getattr(delta, "content", None))
+                if value:
+                    value = value[:max(0, config.MAX_MESSAGE_CHARS - len(text))]
+                    text += value
+                    response_stream.text(value)
+                if getattr(choice, "finish_reason", None) is not None:
+                    finished = True
+    except response_stream.ResponseCancelled:
+        raise
+    except Exception as exc:
+        response_stream.check_cancelled()
+        if text:
+            error = ProviderUnavailableError if isinstance(exc, ProviderUnavailableError) or _is_transient(exc) else ProviderError
+            raise error(_safe_error(exc, provider)) from None
+        raise
+    finally:
+        if bind:
+            bind(None)
+        if usage_response is not None:
+            telemetry.record_usage(usage_response, provider, model)
+        close = getattr(chunks, "close", None)
+        if close:
+            try:
+                close()
+            except Exception:
+                pass
+    response_stream.check_cancelled()
+    if not finished or not text.strip():
+        raise ProviderUnavailableError(f"{provider} did not finish the answer. Please try again later.")
+    return text.strip()
+
+
 def _mistral_completion(prompt: str, model: str, json_mode: bool = False,
-                        max_tokens: int | None = None) -> str:
+                        max_tokens: int | None = None, stream: bool = False) -> str:
     _validate_prompt(prompt)
     if not config.MISTRAL_API_KEY:
         raise ProviderUnavailableError("MISTRAL_API_KEY is missing. Configure it to use chat, routing and provider fallback.")
@@ -113,10 +173,12 @@ def _mistral_completion(prompt: str, model: str, json_mode: bool = False,
         from mistralai.client import Mistral
 
     def request(timeout):
-        with Mistral(api_key=config.MISTRAL_API_KEY, timeout_ms=max(1, int(timeout * 1000)), retry_config=None) as client:
+        with Mistral(api_key=config.MISTRAL_API_KEY, timeout_ms=max(1, int(timeout * 1000)), retry_config=None) as client, response_stream.connection(client):
             options = dict(model=model, messages=[{"role": "user", "content": prompt}], max_tokens=max_tokens or config.MAX_RESPONSE_TOKENS, temperature=0.2, retries=None)
             if json_mode:
                 options["response_format"] = {"type": "json_object"}
+            if stream:
+                return _consume_stream(client.chat.stream(**options), "Mistral", model)
             response = client.chat.complete(**options)
             telemetry.record_usage(response, "Mistral", model)
             return _text_content(response.choices[0].message.content).strip()
@@ -128,10 +190,14 @@ def call_fallback_llm(prompt: str) -> str:
 
 
 def call_conversation_llm(prompt: str) -> str:
+    if response_stream.current():
+        return _mistral_completion(prompt, config.CONVERSATION_MODEL, stream=True)
     return _mistral_completion(prompt, config.CONVERSATION_MODEL)
 
 
 def call_explanation_llm(prompt: str) -> str:
+    if response_stream.current() and not response_stream.current().finalizing:
+        return _mistral_completion(prompt, config.EXPLANATION_MODEL, stream=True)
     return _mistral_completion(prompt, config.EXPLANATION_MODEL)
 
 
@@ -139,7 +205,7 @@ def classify_message(prompt: str) -> str:
     return _mistral_completion(prompt, config.CONVERSATION_MODEL, json_mode=True)
 
 
-def _groq_completion(prompt: str, temperature: float = 0.2) -> str:
+def _groq_completion(prompt: str, temperature: float = 0.2, stream: bool = False) -> str:
     _validate_prompt(prompt)
     if not config.GROQ_API_KEY:
         raise ProviderUnavailableError("GROQ_API_KEY is missing.")
@@ -148,14 +214,20 @@ def _groq_completion(prompt: str, temperature: float = 0.2) -> str:
     from groq import Groq
 
     def request(timeout):
-        with Groq(api_key=config.GROQ_API_KEY, timeout=timeout, max_retries=0) as client:
+        with Groq(api_key=config.GROQ_API_KEY, timeout=timeout, max_retries=0) as client, response_stream.connection(client):
             options = dict(model=config.ANALYSIS_MODEL, messages=[{"role": "user", "content": prompt}], temperature=temperature, max_completion_tokens=config.MAX_RESPONSE_TOKENS)
+            if stream:
+                options["stream"] = True
+                # SDK 1.7.0 exposes this API option through extra_body.
+                options["extra_body"] = {"stream_options": {"include_usage": True}}
             if telemetry.enabled():
                 raw = client.chat.completions.with_raw_response.create(**options)
                 telemetry.record_limits(raw.headers, "Groq")
                 response = raw.parse()
             else:
                 response = client.chat.completions.create(**options)
+            if stream:
+                return _consume_stream(response, "Groq", config.ANALYSIS_MODEL)
             telemetry.record_usage(response, "Groq", config.ANALYSIS_MODEL)
             text = (response.choices[0].message.content or "").strip()
             if not text:
@@ -176,6 +248,8 @@ def _failover(primary, fallback, minimum_primary_seconds: float = 0):
             if not config.MISTRAL_API_KEY:
                 raise ProviderUnavailableError(f"{error} Mistral fallback is not configured.") from None
             telemetry.event("fallback")
+            if response_stream.current() and not response_stream.current().finalizing and response_stream.current().answer:
+                response_stream.reset_answer("The explanation was interrupted. Restarting with the backup provider.")
             return fallback()
 
 
@@ -186,6 +260,8 @@ def call_analysis_llm(prompt: str, temperature: float = 0.2) -> str:
 
 def call_narration_llm(prompt: str) -> str:
     _validate_prompt(prompt)
+    if response_stream.current():
+        return _failover(lambda: _groq_completion(prompt, stream=True), lambda: call_explanation_llm(prompt))
     return _failover(lambda: _groq_completion(prompt), lambda: call_explanation_llm(prompt))
 
 
