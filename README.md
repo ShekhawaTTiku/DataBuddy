@@ -4,7 +4,7 @@ Working repository: [ShekhawaTTiku/DataBuddynew](https://github.com/ShekhawaTTik
 
 A personal data-analysis demonstration: ask questions about a CSV or XLSX file, run generated pandas calculations, and inspect computed evidence and interactive Plotly charts.
 
-The dedicated React/TypeScript frontend and FastAPI backend now wrap the working Python core. It includes uploads, temporary chat, charts and exports, computed evidence and session usage controls. The legacy Streamlit and terminal interfaces remain available.
+The dedicated React/TypeScript frontend and FastAPI backend wrap the working Python core. It includes uploads, temporary chat, progressive answers, early computed results/charts, exports and session usage controls. Responses support reconnect and Stop while preserving the six-exchange memory cycle. See [streaming and recovery](docs/STREAMING.md). The legacy Streamlit and terminal interfaces remain available.
 
 ## Dedicated web app
 
