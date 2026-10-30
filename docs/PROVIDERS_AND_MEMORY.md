@@ -1,6 +1,6 @@
 # Providers and temporary conversation memory
 
-The dedicated API now captures allowlisted usage metadata and available Groq quota headers without changing the provider text-return interface. See [usage policy](WEBAPP_SETUP.md) for estimates, reported totals and unavailable account quotas.
+The dedicated API captures allowlisted usage metadata and available Groq quota headers. As of 2026-10-30, web chat/narration also delivers incremental text through request-local callbacks while preserving the completed string-return interface. Routing, code generation and memory remain buffered. Web routing is classification-only followed by a separate streamed Mistral chat call; legacy interfaces retain combined router/chat behavior. See [streaming](STREAMING.md) and [usage policy](WEBAPP_SETUP.md) for recovery, estimates, reported totals and unavailable account quotas.
 
 Implemented at the owner's request on 2026-10-22 (Asia/Kolkata). This supersedes the initial readiness decision to omit active Gemini summarization. The original backup already used a rolling recent-turn window; it contained an unused Gemini function, not a working summary cycle. Removing that unused plumbing did not remove an active feature. This implementation adds the agreed cycle for the first time in the working checkout.
 
@@ -22,7 +22,7 @@ The Mistral SDK import compatibility fallback remains: try `mistralai.Mistral`, 
 
 ## Six-note cycle
 
-1. Finish the answer and preserve any computed result/chart. Record exactly one completed exchange in recent history.
+1. Finish the answer and preserve any computed result/chart. The web app can display verified evidence and progressively generated text before finalization. Record exactly one exchange in recent history, including an explicitly stopped/partial status when appropriate; never record individual chunks.
 2. Request one brief plain-text note about that exchange. The bounded payload includes question, answer, computed result text if present and success/partial/error status. No separate DataFrame, raw profile or code is supplied to the memory engine.
 3. Keep up to six notes, each at most 400 characters.
 4. At the sixth exchange, brief the new exchange and merge it with the five previous notes and previous rolling paragraph, if any, in ONE provider request. Return one new paragraph of at most 2,000 characters. Replace the paragraph and clear the slots only after successful compression. This preserves the six-exchange cycle while avoiding two sequential requests at rollover.
