@@ -2,6 +2,7 @@
 from contextlib import contextmanager
 from contextvars import ContextVar
 from datetime import datetime, timezone
+import response_stream
 
 _observer = ContextVar("databuddy_observer", default=None)
 
@@ -34,6 +35,7 @@ def observe(events, progress=lambda stage: None):
 
 
 def stage(value):
+    response_stream.check_cancelled()
     current = _observer.get()
     if current:
         current[1](value)
