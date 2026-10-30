@@ -15,6 +15,8 @@ from pathlib import Path
 
 import pandas as pd
 import config
+import response_stream
+import time
 from execution_policy import check_code
 
 @dataclass
@@ -76,17 +78,25 @@ def _bounded_worker(args: list[str], folder: str) -> tuple[int, bytes, bool]:
     for reader in readers:
         reader.start()
     try:
-        proc.wait(timeout=EXEC_TIMEOUT_SECONDS)
+        deadline = time.monotonic() + EXEC_TIMEOUT_SECONDS
+        while proc.poll() is None:
+            response_stream.check_cancelled()
+            if time.monotonic() >= deadline:
+                raise subprocess.TimeoutExpired(args, EXEC_TIMEOUT_SECONDS)
+            try:
+                proc.wait(timeout=min(.1, max(.001, deadline - time.monotonic())))
+            except subprocess.TimeoutExpired:
+                pass
     except subprocess.TimeoutExpired:
         proc.kill()
         proc.wait()
         raise
     finally:
-        for reader in readers:
-            reader.join(timeout=2)
         if proc.poll() is None:
             proc.kill()
             proc.wait()
+        for reader in readers:
+            reader.join(timeout=2)
     return proc.returncode, b"".join(chunks), exceeded.is_set()
 
 def run_code(code: str, df: pd.DataFrame) -> ExecutionResult:
@@ -132,5 +142,7 @@ def run_code(code: str, df: pd.DataFrame) -> ExecutionResult:
         return ExecutionResult(False, None, f"Execution timed out after {EXEC_TIMEOUT_SECONDS} seconds.")
     except (json.JSONDecodeError, UnicodeDecodeError, ValueError):
         return ExecutionResult(False, None, "The analysis worker returned an invalid result.")
+    except response_stream.ResponseCancelled:
+        raise
     except Exception:
         return ExecutionResult(False, None, "The analysis could not run. Please try a simpler question.")
