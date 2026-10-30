@@ -2,7 +2,7 @@
 
 ## Dedicated web application
 
-`frontend/` contains the React/TypeScript interface. `api/main.py` owns bounded in-memory sessions, streamed upload, idempotent background jobs, usage policy and explicit-origin bearer-token transport. `telemetry.py` observes only safe metadata and actual stages through ContextVars. Mutations call the existing core; `/api/job` returns small progress updates and `/api/session` returns dataset previews and completed results. Native dialogs provide data/calculation/chart inspection; Plotly loads on demand. Deployment uses one API worker because state is in-process.
+`frontend/` contains the React/TypeScript interface. `api/main.py` owns bounded in-memory sessions, streamed upload, idempotent background jobs, usage policy and explicit-origin bearer-token transport. `telemetry.py` observes safe metadata/stages. `response_stream.py` provides request-local text/evidence delivery and cancellation; `api/streaming.py` holds the bounded current-job snapshot. Authenticated fetch/SSE delivers incremental answers and early evidence; `/api/job` remains recovery status and `/api/session` supplies canonical completed turns/usage. Stream attachment never creates work. Native dialogs provide data/calculation/chart inspection; Plotly loads on demand. Deployment still uses one API worker because state is in-process. See [streaming](STREAMING.md).
 
 ## Retained interfaces
 
@@ -15,7 +15,7 @@
 
 - config.py: validated environment-backed settings; explicitly loads the project-local .env; no UI imports.
 - dataset_profiler.py / dataset_state.py: bounded memory loading from paths, bytes and binary streams; CSV/XLSX parsing, conservative types/dates, clipped profile and import notices.
-- databuddy.py: session coordinator. DataBuddy(source, filename=None).ask(question) returns AskResult with answer, optional chart/description/suggestion, result_text, code and status (success, partial, error, clarification).
+- databuddy.py: session coordinator. DataBuddy(source, filename=None).ask(question) returns AskResult with answer, optional chart/description/suggestion, result_text, code and status (success, partial, error, clarification, stopped). Delivery callbacks expose evidence before narration and the answer before memory; the central recording path remains once per exchange.
 - conversation_state.py: bounded in-memory recent turns, six brief notes, one rolling paragraph, last successful analysis and five recent charts. Optional Gemini/Mistral summarization; no file save/load. Summaries are excluded from code-generation analysis context, which retains actual recent analysis and saved computed evidence.
 - message_handler.py: local clock handling, model routing with local fallback, conversation and prior-analysis explanation.
 - analyst.py and prompts/: bounded prompt assembly, code generation and evidence-based narration. Optional suggestions default off.
