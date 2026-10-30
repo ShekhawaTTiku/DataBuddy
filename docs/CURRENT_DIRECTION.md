@@ -30,6 +30,8 @@ See [changes explained](CHANGES_EXPLAINED.md), [live verification](LIVE_VERIFICA
 
 ## Current implementation stage
 
+Updated 2026-10-30: the owner retained Cloudflare Pages + Render and authorized incremental answers plus file-by-file publication to DataBuddynew. Streamed ordinary chat/narration, early verified results, reconnect/reload recovery, explicit Stop and preserved memory/accounting are implemented; see [streaming](STREAMING.md). No hosting change or deployment is included. Original web implementation history follows.
+
 Updated 2026-10-27. The owner authorized finalizing the stack and building the full working version, requested less text clutter and invoked frontend-design, React best practices, Web Interface Guidelines and Playwright.
 
 The React/TypeScript/Vite frontend and FastAPI API are implemented around the existing core. Real upload, sample data, chat, charts, evidence, exports, temporary sessions and adaptive allowance are connected. See [working setup/deployment](WEBAPP_SETUP.md), [verification](WEBAPP_VERIFICATION.md) and [design notes](WEBAPP_DESIGN_NOTES.md). No new accounts, database or persistent chat history were added.
