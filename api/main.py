@@ -15,7 +15,7 @@ from urllib.parse import unquote
 
 from fastapi import FastAPI, Header, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
 from starlette.concurrency import run_in_threadpool
 
@@ -24,6 +24,8 @@ from conversation_state import ConversationState
 from databuddy import DataBuddy, AskResult
 from llm_clients import ProviderError
 import telemetry
+import response_stream
+from api.streaming import JobDelivery, frame
 from api.dataset_metadata import suggestion_columns
 
 SESSION_TTL = 1800
@@ -48,6 +50,7 @@ class Session:
     allowance: int = 15
     adjustment_checked: bool = False
     job: dict | None = None
+    delivery: JobDelivery | None = None
     requests: dict = field(default_factory=dict)
     lock: threading.RLock = field(default_factory=threading.RLock)
 
@@ -117,7 +120,7 @@ def create_app(buddy_factory=DataBuddy):
             except TimeoutError:
                 return JSONResponse({"detail": "Request timed out. Try again."}, status_code=408)
         response = await call_next(request)
-        response.headers["Cache-Control"] = "no-store"
+        response.headers.setdefault("Cache-Control", "no-store")
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["Referrer-Policy"] = "no-referrer"
         return response
@@ -193,6 +196,64 @@ def create_app(buddy_factory=DataBuddy):
         with s.lock:
             return {"job": s.job}
 
+    @app.get("/api/jobs/{request_id}/events")
+    async def job_events(request_id: str, authorization: str | None = Header(default=None)):
+        s = get_session(authorization)
+        with s.lock:
+            if not s.job or s.job.get("id") != request_id or not s.delivery:
+                if any(t["id"] == request_id for t in s.turns):
+                    return StreamingResponse(iter([frame("done", {"id": request_id})]), media_type="text/event-stream")
+                raise HTTPException(404, "This response is no longer available. Refresh the conversation.")
+            delivery = s.delivery
+            if delivery.subscribers >= 2:
+                raise HTTPException(429, "Too many response connections. Close the duplicate tab and try again.")
+            delivery.subscribers += 1
+
+        async def updates():
+            version = evidence_version = -1
+            heartbeat = time.monotonic()
+            try:
+                while True:
+                    with s.lock:
+                        if s.delivery is not delivery or not s.job or s.job.get("id") != request_id:
+                            yield_data, done = None, True
+                        else:
+                            done = s.job["state"] != "running"
+                            yield_data = delivery.snapshot(s.job, evidence_version != delivery.evidence_revision) if version != delivery.revision else None
+                            version, evidence_version = delivery.revision, delivery.evidence_revision
+                    if yield_data is not None:
+                        yield frame("update", yield_data)
+                        heartbeat = time.monotonic()
+                    if done:
+                        yield frame("done", {"id": request_id})
+                        return
+                    if time.monotonic() - heartbeat >= 10:
+                        yield ": heartbeat\n\n"
+                        heartbeat = time.monotonic()
+                    await asyncio.sleep(.05)
+            finally:
+                with s.lock:
+                    delivery.subscribers -= 1
+        return StreamingResponse(updates(), media_type="text/event-stream", headers={"X-Accel-Buffering": "no", "Cache-Control": "no-store, no-transform"})
+
+    @app.post("/api/jobs/{request_id}/cancel")
+    def cancel_job(request_id: str, authorization: str | None = Header(default=None)):
+        s = get_session(authorization)
+        with s.lock:
+            if not s.job or s.job.get("id") != request_id:
+                if any(t["id"] == request_id for t in s.turns):
+                    return {"id": request_id, "stopping": False}
+                raise HTTPException(404, "This response is no longer available.")
+            delivery = s.delivery
+            stopping = is_busy(s) and delivery is not None and not delivery.answer_done
+            if stopping:
+                s.job["stage"] = "Stopping response"
+                s.job["stop_requested"] = True
+                delivery.revision += 1
+        if stopping:
+            delivery.cancelled.set()
+        return {"id": request_id, "stopping": stopping}
+
     def load(s, payload, name):
         try:
             buddy = buddy_factory(payload, filename=name)
@@ -204,6 +265,7 @@ def create_app(buddy_factory=DataBuddy):
             columns = suggestion_columns(buddy.dataset.df)
             with s.lock:
                 s.buddy, s.frame_bytes, s.turns, s.job = buddy, size, [], None
+                s.delivery = None
                 s.suggestion_columns = columns
         except ValueError as exc:
             raise HTTPException(422, str(exc)) from None
@@ -258,6 +320,7 @@ def create_app(buddy_factory=DataBuddy):
         with s.lock:
             idle(s)
             s.buddy, s.frame_bytes, s.turns, s.job = None, 0, [], None
+            s.delivery = None
             s.suggestion_columns = []
         return snapshot(s)
 
@@ -269,15 +332,22 @@ def create_app(buddy_factory=DataBuddy):
             if s.buddy:
                 s.buddy.conversation = ConversationState()
             s.turns, s.job = [], None
+            s.delivery = None
         return snapshot(s)
 
     def complete(s, question, request_id):
         events = []
         def progress(value):
             with s.lock:
-                s.job = {"id": request_id, "state": "running", "stage": value, "question": question}
+                s.job["stage"] = value
+                s.delivery.revision += 1
+        def deliver(kind, values):
+            with s.lock:
+                s.delivery.update(kind, values)
+                if kind == "answer_done":
+                    s.job["answer_done"] = True
         try:
-            with telemetry.observe(events, progress):
+            with telemetry.observe(events, progress), response_stream.observe(deliver, s.delivery.cancelled):
                 result = s.buddy.ask(question)
         except ProviderError as exc:
             result = AskResult(str(exc), status="error")
@@ -294,7 +364,8 @@ def create_app(buddy_factory=DataBuddy):
                         average = sum(u["total"] for u in s.usage[:3]) / 3
                         s.allowance -= 2 if average > EXCHANGE_BASELINE * 1.5 else 1 if average > EXCHANGE_BASELINE else 0
                 s.turns.append({"id": request_id, "question": question, **asdict(result)})
-                s.job = {"id": request_id, "state": "done", "stage": "Ready"}
+                s.delivery.update("answer_done", {"answer": result.answer, "status": result.status})
+                s.job = {"id": request_id, "state": "done", "stage": "Ready", "answer_done": True}
                 s.touched = time.monotonic()
             work_gate.release()
 
@@ -318,6 +389,7 @@ def create_app(buddy_factory=DataBuddy):
                 raise HTTPException(503, "Another analysis is running. Try again shortly.")
             s.used += 1
             s.requests[message.request_id] = question
+            s.delivery = JobDelivery()
             s.job = {"id": message.request_id, "state": "running", "stage": "Understanding question", "question": question}
             pool.submit(complete, s, question, message.request_id)
         return {"id": message.request_id}
