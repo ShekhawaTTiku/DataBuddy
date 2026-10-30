@@ -5,6 +5,7 @@ This directory is the source of truth for the current trusted-demo application. 
 | Document | Purpose |
 | --- | --- |
 | [Working web app setup and deployment](WEBAPP_SETUP.md) | Final stack, local run, session/usage policy and deployment configuration |
+| [Streaming and response recovery](STREAMING.md) | Incremental answers, early results, reconnect, Stop, fallback and once-per-exchange memory/accounting |
 | [Web app verification](WEBAPP_VERIFICATION.md) | Offline API/core tests, production build, browser/accessibility checks and hosting limits |
 | [UI design decisions](WEBAPP_DESIGN_NOTES.md) | Simplified copy, token system, layout and implementation decisions |
 | [Current direction and recovered decisions](CURRENT_DIRECTION.md) | Portfolio purpose, settled constraints, completed stage and current dedicated-web-app status |
