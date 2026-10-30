@@ -7,6 +7,7 @@ import config
 import executor
 import message_handler
 import telemetry
+import response_stream
 from conversation_state import ConversationState
 from dataset_state import load_and_profile
 from llm_clients import ProviderError, request_budget
@@ -72,15 +73,22 @@ class DataBuddy:
 
         # Keep successful work before asking for optional narration.
         self.conversation.add_chart(question, code, execution.chart_description or "Chart", execution.chart_json)
+        self._remember_analysis(question, code, execution, "Chart ready; explanation pending.")
+        response_stream.evidence(chart_json=execution.chart_json, chart_description=execution.chart_description,
+                                 result_text=execution.result_text, result_table=execution.result_table, code=code)
         status = "success"
         try:
             telemetry.stage("Writing answer")
             insight = _nonempty(analyst.write_chart_insight(self.dataset.text, question, code, execution))
+        except response_stream.ResponseCancelled:
+            raise
         except Exception as error:
             status = "partial"
             insight = "Your chart is ready. The written explanation is unavailable right now."
             if isinstance(error, ProviderError):
                 insight += " " + str(error)
+            if response_stream.current() and response_stream.current().answer:
+                insight = response_stream.current().answer + "\n\n" + insight
         self._remember_analysis(question, code, execution, insight)
         return AskResult(
             answer=insight, chart_json=execution.chart_json,
@@ -92,9 +100,23 @@ class DataBuddy:
     def ask(self, question: str) -> AskResult:
         """Share one provider deadline across routing, generation and narration."""
         with request_budget():
-            result = self._ask(question)
+            try:
+                result = self._ask(question)
+                response_stream.check_cancelled()
+            except response_stream.ResponseCancelled:
+                delivery = response_stream.current()
+                result = AskResult(answer=((delivery.answer + "\n\n") if delivery and delivery.answer else "") + "Response stopped.",
+                                   status="stopped", **(delivery.evidence if delivery else {}))
+            except ProviderError as error:
+                delivery = response_stream.current()
+                if not delivery:
+                    raise
+                result = AskResult(answer=((delivery.answer + "\n\nResponse interrupted. ") if delivery.answer else "") + str(error),
+                                   status="partial" if delivery.answer or delivery.evidence else "error", **delivery.evidence)
+            result.answer = result.answer[:config.MAX_MESSAGE_CHARS]
+            response_stream.finish(result)
             if question.strip() and len(question.strip()) <= config.MAX_QUESTION_CHARS:
-                is_analysis = bool(result.code and result.result_text and result.status in {"success", "partial"})
+                is_analysis = bool(result.code and result.result_text and result.status in {"success", "partial", "stopped"})
                 self.conversation.add_turn(question.strip(), result.answer, is_analysis=is_analysis)
                 telemetry.stage("Updating session memory")
                 self.conversation.update_memory(question.strip(), result.answer,
@@ -132,6 +154,8 @@ class DataBuddy:
         elif route == "explain_analysis":
             try:
                 answer = _nonempty(message_handler.answer_explanation(question, self.conversation.last_analysis))
+            except response_stream.ResponseCancelled:
+                raise
             except Exception as error:
                 if not self.conversation.last_analysis:
                     raise
@@ -175,15 +199,21 @@ class DataBuddy:
                     code=code, status="clarification",
                 )
                 return result
+            self._remember_analysis(question, code, execution, "Calculation ready; explanation pending.")
+            response_stream.evidence(result_text=execution.result_text, code=code, result_table=execution.result_table)
             status = "success"
             try:
                 telemetry.stage("Writing answer")
                 answer = _nonempty(analyst.write_answer(self.dataset.text, question, code, execution, conversation_text=context))
+            except response_stream.ResponseCancelled:
+                raise
             except Exception as error:
                 status = "partial"
                 answer = "The calculation completed. The written explanation is unavailable; inspect the computed result below."
                 if isinstance(error, ProviderError):
                     answer += " " + str(error)
+                if response_stream.current() and response_stream.current().answer:
+                    answer = response_stream.current().answer + "\n\n" + answer
             self._remember_analysis(question, code, execution, answer)
             suggestion = None
             if config.ENABLE_VISUALIZATION_SUGGESTIONS:
