@@ -1,5 +1,13 @@
 # Dedicated web app verification
 
+## Hosted frontend and API connection — 2026-11-05
+
+The public frontend at `https://databuddy-demo.pages.dev` and its JavaScript returned HTTP 200. Its configured API is the existing Render service. A health request with the new frontend Origin returned HTTP 200 and the matching CORS header, and Try sample data loaded four rows and five columns in Chrome. Both hosting dashboards reported successful deployments. These checks used no provider inference. Hosted model streaming, provider-key validity and idle-wake acceptance remain pending. See [the work log](WORK_LOG.md#free-frontend-address-migration--2026-11-05).
+
+## Local Linux container acceptance — 2026-10-30
+
+The production Dockerfile builds unchanged on Linux amd64 with all 47 locked packages, a non-root user and private/test files excluded. All **183 Linux tests** pass. Eight synthetic loader/worker/chart probes passed at 512 MiB/no swap with 1 CPU and 0.1 CPU; the strict maximum cgroup peak was 355.98 MiB and workers stayed below 30 seconds. The exact production image passed loopback HTTP/startup/restart acceptance under the strict cap. See [container verification](CONTAINER_VERIFICATION.md) for timings, images, regression-image differences, reproduction and limits. No live providers or deployment were used. Hosted resource/cold-wake/proxy and real-provider acceptance remain outstanding.
+
 ## Incremental answers and recovery — 2026-10-30
 
 - Final full offline suite: **183 passed in 34.76 seconds**, with the existing Starlette/httpx deprecation warning. Thirteen new cases cover streamed SDK transport, partial failures, bounded text, classification-only web routing, evidence preservation, stopped-exchange recording, memory ordering and both six-note rollovers, worker cancellation/cleanup, cancellation at the evidence handoff and real HTTP delivery. No live provider calls or quota used.
@@ -8,7 +16,7 @@
 - Ten frontend tests pass, including three new SSE parser tests for split UTF-8/Unicode, CRLF, heartbeats, multiline frames, explicit completion, premature EOF, oversized frames and reader cleanup on processing errors. TypeScript/Vite production build passed; production dependency audit reports zero vulnerabilities; Python dependency consistency passed. Browser callback formatting/syntax and documentation links/whitespace were checked.
 - The fixture-guarded `scripts/verify_streaming_ui.js` passed on desktop 1440px and mobile 390/320px. It observed multiple progressively rendered answer states, readable answers during memory, reload attaching to the same admitted request, desktop/mobile Stop, replacement of an unfinished primary draft, charts available while narration is pending, interactive chart inspection, light/dark themes and exactly six deliberate submissions. The inspected mobile dark state has zero axe violations and no page overflow; no browser page errors were recorded. Synthetic screenshots remain under ignored output/playwright.
 - The browser callback suppresses the pre-existing unsaved-work confirmation only in its test page to automate reload. The synthetic chart narrator deliberately waits so early-evidence behavior can be observed despite first-load Plotly work. The production app introduces neither artificial typing nor artificial answer delays.
-- New actual-provider streaming has not been exercised against the owner's accounts. The Docker build/run, Linux resource/cold-start checks and streaming through real hosted proxies remain deployment acceptance work. Ordinary web chat adds a separate Mistral answer call. Stop still permits one bounded status-aware memory update; provider consumption can be unreported after failure. Basic execution checks remain **not a hardened security sandbox**.
+- New actual-provider streaming has not been exercised against the owner's accounts. Docker build/run and local Linux resource/startup checks subsequently passed; see [container verification](CONTAINER_VERIFICATION.md). Actual hosted cold wake-up and streaming through real hosted proxies remain deployment acceptance work. Ordinary web chat adds a separate Mistral answer call. Stop still permits one bounded status-aware memory update; provider consumption can be unreported after failure. Basic execution checks remain **not a hardened security sandbox**.
 
 ## Dataset-aware task menus — 2026-10-28
 
@@ -85,4 +93,4 @@ Windows probes exercised the real loader and child calculation/chart process, sa
 | 200-column CSV, initial core-only probe | 19.07 MiB | 303.40 MiB | Loaded and executed chart |
 | 20,000-row XLSX, initial core-only probe | 0.22 MiB | 216.89 MiB | Loaded and executed chart |
 
-These are sampled Windows measurements, not Linux RSS guarantees or 0.1-CPU timings. Later probe versions import provider SDKs to avoid understating a warm API's footprint. Parsing can peak before DataFrame admission checks. Docker/WSL are absent, so container build/run and Render cold starts/resource behavior remain deployment acceptance checks. New live-provider integration has not been rerun; the existing verified provider logic is retained and new metadata parsing is tested offline.
+These are historical sampled Windows measurements, not Linux RSS guarantees or 0.1-CPU timings. Later probe versions import provider SDKs to avoid understating a warm API's footprint. Parsing can peak before DataFrame admission checks. Docker/WSL were unavailable at the time of these measurements; [local Linux verification](CONTAINER_VERIFICATION.md) subsequently passed on 2026-10-30. Actual Render cold-wake/resource behavior and current live-provider integration remain unverified.

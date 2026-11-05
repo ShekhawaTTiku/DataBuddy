@@ -1,5 +1,44 @@
 # DataBuddy readiness work log
 
+## Public repository and profile README refresh — 2026-11-05
+
+- The owner renamed the current application repository from private DataBuddynew to public DataBuddy, and moved the original Streamlit repository to private DataBuddy1. Verified that the public destination still points to `64b49c5` before preparing publication. Corrected local `origin` and `upstream` URLs to the new names.
+- Rebuilt the application README using one copy of the owner's attached Streamlit README structure, replacing the old UI, demo, installation, provider defaults and limits with current React/FastAPI behavior. Updated the profile's DataBuddy description and live link, and added TypeScript, React and Docker badges. Updated the linked current deployment/publication notes and included the existing local Linux verification guide and related documentation corrections.
+- Fresh offline checks passed with **183 Python tests in 45.07 seconds**, ten frontend tests and the TypeScript/Vite production build. The Python suite retains the known upstream Starlette/httpx deprecation warning. GitHub Markdown rendering passed for both READMEs, with matching reference section order, valid local document links and current demo links. Candidate documents passed configured-key exclusion checks. No live provider inference was used.
+- Publication uses terminal Git commits and pushes under the existing owner identity for author and committer, without co-author trailers. The profile clone and verification previews stay inside this checkout's Git directory. The original local backup remains the historical checkout.
+
+## Free frontend address migration — 2026-11-05
+
+- The owner requested an available free address without `new`. Created the Git-connected Cloudflare Pages project `databuddy-demo` at `https://databuddy-demo.pages.dev` from the same repository, `main` and commit `64b49c5`. Retained the verified `frontend` root, `npm ci && npm run build`, `dist` output, Node 24 and existing Render API URL.
+- Cloudflare reported deployment success. Changed Render's `DATABUDDY_ORIGINS` from the previous Pages origin to `https://databuddy-demo.pages.dev` and selected Save and deploy. Render reported the redeployment succeeded. The website and its JavaScript returned HTTP 200, and the JavaScript references the existing Render API. A health request with the new Origin returned HTTP 200 and the matching `Access-Control-Allow-Origin` header.
+- Verified the new public site in Chrome. Try sample data loaded the bundled sample successfully with four rows and five columns. No provider inference was used. The existing provider key entries were present and remained masked during the configuration change. Their validity and hosted model streaming still require acceptance checks.
+- The original Pages project remains available as a deployment record, but Render now permits the new Pages origin. The backend hostname still contains `databuddynew`; the address shared with visitors is the new Pages URL. No application source, repository name, commit or push changed.
+
+## DataBuddy deployment name — 2026-11-04
+
+- Renamed the existing Render service to `DataBuddy` in its dashboard. The exact public names were already assigned: `databuddy.pages.dev` served an unrelated site, and `databuddy.onrender.com` returned Render's suspended-service page. Cloudflare Pages does not support changing a project's default subdomain in place.
+- Verified HTTP 200 for the existing Pages URL and Render `/api/health` after the dashboard rename. The public endpoints and API configuration stayed in place. The health check used no model inference.
+
+## Cloudflare Pages frontend deployment — 2026-11-04
+
+- At the owner's request, deployed `main` at `64b49c5` to `https://databuddynew.pages.dev` using the existing GitHub integration. Set the root to `frontend`, build command to `npm ci && npm run build`, output to `dist`, `NODE_VERSION=24` and `VITE_API_URL=https://databuddynew.onrender.com`.
+- Cloudflare reported a successful deployment. The public page and its JavaScript asset each returned HTTP 200, and the asset contained the Render API URL. The Render origin setting, provider keys and hosted end-to-end checks remain pending. Static verification used no model inference.
+
+## Render Free backend deployment — 2026-11-04
+
+- The owner configured the `DataBuddynew` Docker web service in Oregon on Render Free with `/api/health`, `EXEC_TIMEOUT_SECONDS=30`, `DEBUG=false` and manual deploys. The first build succeeded, but Render's startup health-check window elapsed about 36 seconds before Uvicorn logged that it was listening on port 10000. The source of that delay remains unknown.
+- On the owner's request, retried commit `64b49c5` on the same service. Render marked the retry Live in 29.8 seconds. A direct HTTPS request to `/api/health` returned HTTP 200 with `{"status":"ok"}`. This check covered backend readiness and used no model inference.
+- Cloudflare Pages setup, the exact CORS origin, provider secrets and end-to-end hosted acceptance remain pending. See [deployment setup](WEBAPP_SETUP.md#deployment).
+
+## Owner-authorized Docker installation and local Linux acceptance — 2026-10-30
+
+- The owner retained Cloudflare Pages + Render, authorized local Docker installation/testing, enabled WSL and returned after a Windows restart. Verified WSL2, installed Docker Desktop 4.97.0 per user with the WSL2 backend and validated the official installer checksum/signature. Engine 29.9.2 runs Linux amd64 with working memory/swap/CPU cgroup controls. No additional owner action was needed. Removed the downloaded installer after successful installation; retained local images and aggregate diagnostic records.
+- Detected the newer streaming checkpoint at `64b49c5` and tested that current source. The existing production Dockerfile built without application/dependency changes. Python 3.11.18, all 47 locked packages and dependency consistency passed; the image runs as UID 1000 and excludes private files/keys, saved state and verification fixtures. The first build needed the newly installed Docker CLI directory added to this already-open session's PATH so its credential helper could be found; no Docker sign-in/account was required.
+- Fresh Windows suite: **183 passed in 44.83 seconds**; ten frontend tests and production build passed. A disposable production-derived Linux regression image passed **183 tests in 25.68 seconds** with networking disabled. Both Python runs retain the known upstream Starlette/httpx deprecation warning. Test-only tools/legacy dependencies are excluded from the production image.
+- Separate resource images add only psutil/scripts, preserving production parser dependencies. All eight synthetic sample/19.45 MiB CSV/200-column CSV/XLSX probes passed at 512 MiB with no swap, using 1 CPU and then 0.1 CPU. Strict-run cgroup peak reached 355.98 MiB (maximum sampled summed RSS 385.50 MiB), no OOM events; calculation/chart workers took 16.81–18.80 seconds within the 30-second cap. Diagnostic load/import/payload creation took 23.51–40.40 seconds at 0.1 CPU, so resource fit does not imply fast responses.
+- The unchanged production image passed real loopback HTTP health, bearer/CORS/preflight, sample, invalid-replacement preservation, reset/removal and restart/session invalidation checks under the same strict limits and a non-default PORT. Initial and restarted readiness each took 13.39 seconds. No provider keys or private data were supplied; no live inference quota used. Temporary test containers were removed; no deployment, commit/push, original-backup or private-config changes occurred.
+- Added CONTAINER_VERIFICATION.md with environment/image identities, actual measurements, reproduction and limits; updated current hosting/verification guidance. WSL2 limits approximate Render and do not prove every 20 MiB upload, all resident-session combinations, actual-provider deadlines or hosted proxy/cold-wake behavior. Basic execution checks and Docker remain **not a hardened security sandbox**.
+
 ## Owner-authorized streaming and file-by-file GitHub update — 2026-10-30
 
 - The owner approved the discussed flow and explicitly requested implementation plus GitHub updates file by file. Kept the existing React/FastAPI core, Groq/Gemini/Mistral roles, six-exchange memory cycle, session-only data, 20 MiB limit and zero-budget scope. The latest accessible project chat retained Cloudflare Pages + Render; no Oracle migration, hosting creation or deployment is included. Applied React performance guidance and Playwright CLI verification; no delegation used.

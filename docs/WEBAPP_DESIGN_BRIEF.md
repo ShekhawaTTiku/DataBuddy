@@ -61,4 +61,4 @@ References reviewed during discussion: [Groq usage](https://console.groq.com/doc
 
 ## Next step
 
-Deploy when authorized using WEBAPP_SETUP.md. Local UI/API implementation and offline verification are complete. Actual Linux container execution, Render resource/cold-start acceptance and deployment-origin checks remain part of deployment. Commit, push and deployment remain separately authorized actions.
+Deploy when authorized using WEBAPP_SETUP.md. Local UI/API implementation, offline verification and [local Linux container/resource checks](CONTAINER_VERIFICATION.md) are complete. Actual Render resource/cold-wake acceptance, hosted streaming/provider behavior and deployment-origin checks remain part of deployment. Commit, push and deployment remain separately authorized actions.

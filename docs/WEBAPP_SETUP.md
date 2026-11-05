@@ -1,6 +1,6 @@
 # Working web app and deployment handoff
 
-Updated 2026-10-30 (Asia/Kolkata). The owner authorized progressive answers and file-by-file publication to private DataBuddynew. Local `main` tracks that repository's `origin/main`; see [the publication checkpoint](GITHUB_CHECKPOINT.md). No hosting service creation or deployment is included.
+Updated 2026-11-05 (Asia/Kolkata). The current public source repository is [ShekhawaTTiku/DataBuddy](https://github.com/ShekhawaTTiku/DataBuddy), renamed by the owner from DataBuddynew. Local `main` tracks `origin/main`. The frontend is deployed at `https://databuddy-demo.pages.dev` and the API runs on Render Free. See [deployment](#deployment) for verified behavior and remaining acceptance checks.
 
 ## Final stack
 
@@ -8,7 +8,7 @@ Updated 2026-10-30 (Asia/Kolkata). The owner authorized progressive answers and 
 - Custom CSS theme tokens, locally bundled DM Sans/Newsreader and Lucide icons. Adapted Vercel AI Elements conversation/message primitives use `use-stick-to-bottom` 1.1.6. Streamdown 2.7.1 with math/Mermaid plugins renders answers; Tailwind 4.3.3 generates only the renderer's utilities without a global CSS reset.
 - Plotly.js 4.1.2 through react-plotly.js 4.1.0, loaded when a chart is needed. Standalone HTML export loads its additional source asset only on request.
 - Python 3.11, FastAPI 0.143.0 and Uvicorn 0.54.0. Existing pandas/NumPy/openpyxl/Plotly analysis and Groq/Gemini/Mistral roles retained.
-- Temporary in-process sessions, no database or accounts. Docker packages the API. Cloudflare Pages Free + Render Free remain the hosting target.
+- Temporary in-process sessions, no database or accounts. Docker packages the API. Cloudflare Pages Free + Render Free host the deployed app.
 
 `frontend/package-lock.json` locks the browser dependencies. `requirements-api.txt` lists direct Python dependencies; `requirements-api-lock.txt` pins the 47-package tested runtime closure used by Docker. The legacy Streamlit application remains available separately.
 
@@ -85,9 +85,9 @@ npm run build
 
 For isolated suggestion-menu verification, generate synthetic files with `python scripts/browser_fixture.py --write-ui-fixtures`, then run the fixture with `DATABUDDY_FIXTURE_PORT=8001`. Start Vite separately with `VITE_API_URL=http://127.0.0.1:8001` and `npm run dev -- --port 5174`. The verification callback `scripts/verify_suggestion_ui.js` targets these explicit test ports and refuses non-fixture submissions. Run it from the checkout via Playwright CLI after opening `http://127.0.0.1:5174`. Keep these test-only environment settings out of production frontend builds.
 
-## Deployment: prepared configuration
+## Deployment
 
-No deployment commands below have been executed. Deployment still requires the owner's explicit authorization.
+As of 2026-11-05, the public frontend is `https://databuddy-demo.pages.dev`. Both hosts deployed commit `64b49c5`. The Render backend health check returned HTTP 200 at `https://databuddynew.onrender.com/api/health` and accepted the new Pages origin. Render has `DATABUDDY_ORIGINS=https://databuddy-demo.pages.dev` and the three provider key entries configured. Their values were kept masked and their validity remains unverified. The new Pages site and its JavaScript returned HTTP 200, its JavaScript references the Render API, and Try sample data worked in Chrome. Hosted provider and streaming acceptance checks remain pending. See the [work log](WORK_LOG.md#free-frontend-address-migration--2026-11-05) for the migration checks. Further deployment actions require the owner's explicit authorization.
 
 1. **Render API:** use the repository root Dockerfile and `render.yaml`, Free plan, one instance. Health path `/api/health`; port comes from Render's `PORT`. Set `GROQ_API_KEY`, `GEMINI_API_KEY`, `MISTRAL_API_KEY` privately. `DATABUDDY_ORIGINS` must be the exact Cloudflare frontend origin, including `https://`, without a path/trailing slash. Multiple approved origins may be comma-separated; wildcard is rejected. `EXEC_TIMEOUT_SECONDS=30` is in the blueprint for the small CPU.
 2. **Cloudflare Pages:** project root `frontend`, build command `npm ci && npm run build`, output `dist`, Node 24. Set `VITE_API_URL=https://<actual-render-service>.onrender.com` at build time. Do not append `/api`. This value is public and contains no secret. No Pages Functions, database or paid service is needed.
@@ -97,6 +97,8 @@ No deployment commands below have been executed. Deployment still requires the o
 
 The frontend can load while Render wakes up; the API can sleep after inactivity and may take roughly a minute to return. Waking/unavailable feedback, retry and session-expired/reupload flows are implemented. Free-provider limits and Render resource limits can interrupt a session. No paid fallback is enabled.
 
-## Remaining hosting limitation
+## Local container checks and remaining hosting limitation
 
-Docker and WSL are not installed on the current machine. Linux-compatible dependency resolution passed, and local Windows resource probes passed, but the Docker image and real Render workload could not be executed here. This is a deployment acceptance check, not a claim that all 20 MiB datasets fit. Basic execution checks and Docker packaging are **not a hardened security sandbox**; this remains a trusted portfolio demo.
+Updated 2026-10-30: WSL2 and Docker Desktop are installed and working. The existing production image builds on Linux amd64 with all 47 locked dependencies. All 183 Linux regression tests and eight local 512 MiB/no-swap resource probes passed, including at 0.1 CPU; production HTTP startup/restart checks passed too. See [container verification](CONTAINER_VERIFICATION.md) for precise results and reproduction. No application change or upload-limit reduction was needed.
+
+Hosted idle wake-up, proxy streaming and live-provider acceptance remain pending. Local capped workloads do not guarantee every 20 MiB file or every session combination fits. Strict 0.1-CPU processing is slow. Basic execution checks and Docker packaging are **not a hardened security sandbox**. This remains a trusted portfolio demo.

@@ -1,5 +1,7 @@
 # Selected stack and free-hosting target
 
+Current status as of 2026-11-05. The owner renamed the current repository to public [ShekhawaTTiku/DataBuddy](https://github.com/ShekhawaTTiku/DataBuddy). The frontend is deployed at `https://databuddy-demo.pages.dev`, the Render API accepts that origin, and browser sample loading passed. Linux container checks passed earlier. Hosted provider streaming and idle-wake acceptance remain pending. See [current deployment details](WEBAPP_SETUP.md#deployment). The dated sections below retain the earlier decisions and checks.
+
 Date: 2026-10-26 (Asia/Kolkata). The owner asked the assistant to choose the stack and recommend the best free hosting for the agreed portfolio scope. The selection was subsequently implemented at the owner’s request; deployment remains separately authorized. See [working setup](WEBAPP_SETUP.md) and [verification](WEBAPP_VERIFICATION.md).
 
 ## Stack selected for implementation
@@ -47,6 +49,6 @@ Basic execution safeguards remain intended for trusted demonstrations and are no
 
 ## Next stage and publication boundaries
 
-The local implementation is complete. Windows resource probes and Linux dependency resolution passed; the actual Linux container/Render CPU and memory checks remain deployment acceptance work because Docker/WSL are unavailable locally. Create hosting accounts/services and deploy only when explicitly authorized.
+Updated 2026-10-30: the existing production image builds/runs on Linux amd64, all 183 Linux tests pass, and eight local 512 MiB/no-swap probes pass at 1 CPU and 0.1 CPU. Production HTTP startup/restart checks pass under the strict cap. See [container verification](CONTAINER_VERIFICATION.md). These measurements support trying Render Free; they do not establish actual hosted cold-wake/proxy/provider behavior or certify every allowed dataset/session combination. Create hosting accounts/services and deploy only when explicitly authorized.
 
 The earlier Sites publication request was cancelled as accidental. It caused no Site creation, publication or file changes. Sites is not this application's selected hosting platform. No commit, push or deployment is part of this stack-selection task.

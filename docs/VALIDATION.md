@@ -1,5 +1,13 @@
 # Validation record
 
+## README publication checks — 2026-11-05
+
+Fresh verification before publishing the updated public-repository and profile READMEs passed **183 offline Python tests in 45.07 seconds**, ten frontend tests and the TypeScript/Vite production build. The known upstream Starlette/httpx deprecation warning remains. Both READMEs passed GitHub Markdown rendering, local document-link checks and current-demo-link checks. The application README preserves the attached reference's section order. Candidate documents passed checks for configured provider-key values. These checks used no live provider inference.
+
+## Local Linux container acceptance — 2026-10-30
+
+Fresh Windows suite: **183 tests in 44.83 seconds**; Linux suite: **183 tests in 25.68 seconds**, with the known Starlette/httpx warning. Ten frontend tests and the production build pass. The unchanged production Dockerfile builds on Linux amd64 with all 47 locked packages and passes non-root/private-file checks. Eight 512 MiB/no-swap synthetic probes pass at 1 CPU and 0.1 CPU; strict workers complete within 30 seconds with no OOM events. Production HTTP startup/restart checks also pass under the strict limits. No provider quota or deployment was used. See [container verification](CONTAINER_VERIFICATION.md) for the exact test environments, measurements, reproduction and remaining hosted limitations.
+
 ## Private GitHub update preflight — 2026-10-27
 
 The owner authorized grouped publication of the existing dedicated-app changes. Fresh checks: **167 Python tests passed in 33.51 seconds**, with one documented upstream Starlette TestClient/httpx deprecation warning; `python -m pip check` passed; `npm run build` passed TypeScript/Vite production compilation; npm audit reported zero vulnerabilities. No live provider calls, deployment or new browser/resource acceptance run was performed during this publication. The existing dedicated-app browser/resource evidence below remains dated. Publication safety and commit groups are recorded in [GITHUB_CHECKPOINT.md](GITHUB_CHECKPOINT.md).

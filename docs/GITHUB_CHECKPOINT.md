@@ -1,4 +1,10 @@
-# Private GitHub checkpoint
+# GitHub publication checkpoints
+
+## Public repository rename and README publication — 2026-11-05
+
+The owner made the current application repository public and renamed it from DataBuddynew to [ShekhawaTTiku/DataBuddy](https://github.com/ShekhawaTTiku/DataBuddy). The original Streamlit repository became private DataBuddy1. Earlier private-repository references below describe their publication dates.
+
+The owner authorized updating the profile README and application README using terminal Git commands with the existing owner identity. The working checkout's `origin` now targets DataBuddy and `upstream` targets DataBuddy1. The profile repository is edited in a separate clone inside this checkout's Git directory. Publication includes the current deployment and Linux verification notes referenced by the README. New commits use the configured owner as both author and committer, with no co-author trailers.
 
 ## Streaming implementation, file-by-file publication — 2026-10-30
 

@@ -1,5 +1,7 @@
 # Current direction and recovered decisions
 
+Current status as of 2026-11-05. The owner renamed the current repository to public [ShekhawaTTiku/DataBuddy](https://github.com/ShekhawaTTiku/DataBuddy). The frontend is deployed at `https://databuddy-demo.pages.dev`, the Render API accepts that origin, and browser sample loading passed. Linux container checks passed earlier. Hosted provider streaming and idle-wake acceptance remain pending. See [current deployment details](WEBAPP_SETUP.md#deployment). The dated sections below retain the earlier decisions and checks.
+
 Updated: 2026-10-26 (Asia/Kolkata). This note records the owner's existing decisions, recovered from accessible project chats and current documentation. Subsequent accepted design decisions are in the [dedicated web app design brief](WEBAPP_DESIGN_BRIEF.md). The owner subsequently authorized the complete web implementation; commit, push and deployment remain separate actions.
 
 ## Purpose
@@ -36,7 +38,9 @@ Updated 2026-10-27. The owner authorized finalizing the stack and building the f
 
 The React/TypeScript/Vite frontend and FastAPI API are implemented around the existing core. Real upload, sample data, chat, charts, evidence, exports, temporary sessions and adaptive allowance are connected. See [working setup/deployment](WEBAPP_SETUP.md), [verification](WEBAPP_VERIFICATION.md) and [design notes](WEBAPP_DESIGN_NOTES.md). No new accounts, database or persistent chat history were added.
 
-The next stage is deployment acceptance and publication when authorized: actual Cloudflare/Render URLs, secret configuration, Linux Docker resource checks and cold-start smoke testing. The accidental Sites request remains cancelled. No commit, push or deployment occurred in the web implementation task. Docker/WSL are absent locally; Linux wheel resolution and Windows resource measurements do not prove Render runtime suitability.
+Updated 2026-10-30 after the owner's WSL restart: Docker is installed, the production image builds on Linux, all 183 Linux tests pass and local 512 MiB/no-swap/0.1-CPU probes plus production startup/restart smoke checks pass. See [container verification](CONTAINER_VERIFICATION.md); these checks did not change application code or consume provider quota.
+
+The next stage is actual deployment acceptance when authorized: Cloudflare/Render URLs, private secret configuration, hosted cold wake-up, streaming/proxy/browser checks and current provider behavior. Local WSL2 limits do not certify Render performance, every allowed upload or multi-session resource peaks. The accidental Sites request remains cancelled. No commit, push or deployment occurred in this container-verification task.
 
 ## Recovery sources and limits
 
