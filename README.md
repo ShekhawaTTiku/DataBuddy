@@ -49,7 +49,7 @@ The web app pairs a **React/TypeScript frontend** with a **FastAPI backend** aro
 
 - 📂 Upload CSV or XLSX files up to **20 MiB**, or start with sample data.
 - 🔎 Preview your dataset and inspect column types, missing values and import notices.
-- 💬 Ask analysis questions and follow-ups, or explain the previous calculation after loading data.
+- 💬 Ask analysis questions and follow-ups, or explain the previous calculation. Greetings, introductions and general questions work before an upload.
 - 🐼 Inspect computed results and the calculation code behind an answer.
 - 📈 Open interactive Plotly charts and export PNG or self-contained HTML files.
 - ⚡ Read progressive answers and see ready results or charts while narration is arriving.
@@ -111,7 +111,7 @@ Provider prompts may include sample rows, dataset statistics, conversation conte
 - Network access to the providers and enough memory for the dataset and calculation worker.
 - Docker when running the packaged backend locally.
 
-`requirements-api-lock.txt` pins the tested Python API runtime. `frontend/package-lock.json` locks the browser dependencies. The optional Streamlit and terminal entry points are retained in the repository.
+`requirements/api-lock.txt` pins the tested Python API runtime. `frontend/package-lock.json` locks the browser dependencies. The optional Streamlit and terminal entry points are retained in the repository.
 
 ---
 
@@ -140,7 +140,7 @@ source .venv/bin/activate
 Then install the API dependencies
 
 ```bash
-python -m pip install -r requirements-api-lock.txt
+python -m pip install -r requirements/api-lock.txt
 ```
 
 ### 2. Configure Provider Keys
@@ -174,7 +174,7 @@ npm ci
 Start the backend from the repository root with the virtual environment active
 
 ```bash
-python -m uvicorn api.main:app --host 127.0.0.1 --port 8000 --workers 1 --no-access-log
+python -m uvicorn backend.api.main:app --host 127.0.0.1 --port 8000 --workers 1 --no-access-log
 ```
 
 In a second terminal, start the frontend
@@ -186,14 +186,14 @@ npm run dev
 
 Open `http://127.0.0.1:5173`. Vite forwards local `/api` requests to port 8000. Leave `VITE_API_URL` empty for this setup. The health endpoint is `http://127.0.0.1:8000/api/health`.
 
-Load a dataset or the sample before sending messages. Uploads support **CSV and the first worksheet of XLSX**, up to **20 MiB (20,971,520 bytes)**. Additional row, column and processing limits apply.
+Start chatting immediately. Upload a dataset or use the sample when you want calculations or charts. Your introductory conversation and memory carry into the first upload. Uploads support **CSV and the first worksheet of XLSX**, up to **20 MiB (20,971,520 bytes)**. Additional row, column and processing limits apply.
 
 ### Terminal Chat
 
 From the repository root, run
 
 ```bash
-python app.py examples/demo_sales.csv
+python -m backend.cli examples/demo_sales.csv
 ```
 
 | Command | Action |
@@ -202,7 +202,7 @@ python app.py examples/demo_sales.csv
 | `/reset` | Clear conversation context for this run. |
 | `/quit` | Exit the session. |
 
-The terminal interface also uses temporary state. For the retained Streamlit interface, install `requirements.txt` and run `python -m streamlit run web_app.py`.
+The terminal interface also uses temporary state. For the retained Streamlit interface, install `requirements/legacy.txt` and run `python -m streamlit run web_app.py`.
 
 ### Example Questions
 
@@ -214,7 +214,7 @@ The terminal interface also uses temporary state. For the retained Streamlit int
 ### Offline Checks
 
 ```bash
-python -m pip install -r requirements-dev.txt
+python -m pip install -r requirements/dev.txt
 python -m pytest -q
 ```
 
@@ -238,7 +238,7 @@ In `frontend`, run `npm test` and `npm run build`. Regression tests use fake pro
 | `EXEC_TIMEOUT_SECONDS` | `5` | Calculation deadline, configurable from 1 to 30 seconds. The deployment uses 30. |
 | `DEBUG` | `false` | Enable diagnostic logging. Keep disabled for normal demonstrations. |
 
-These defaults come from `config.py`. Provider access, model aliases and free quotas depend on your account. Each memory cycle folds six brief exchange notes into a rolling summary while retaining bounded recent exchanges and chart context. See [provider and memory behavior](docs/PROVIDERS_AND_MEMORY.md).
+These defaults come from `backend/core/config.py`. Provider access, model aliases and free quotas depend on your account. Each memory cycle folds six brief exchange notes into a rolling summary while retaining bounded recent exchanges and chart context. See [provider and memory behavior](docs/PROVIDERS_AND_MEMORY.md).
 
 For hosted builds, set `VITE_API_URL` to the Render API origin and set `DATABUDDY_ORIGINS` on Render to the exact frontend origin. The current frontend origin is `https://databuddy-demo.pages.dev`. See [setup and deployment](docs/WEBAPP_SETUP.md).
 
@@ -248,30 +248,25 @@ For hosted builds, set `VITE_API_URL` to the Render API origin and set `DATABUDD
 
 ```text
 DataBuddy/
-├── frontend/                   # React, TypeScript, Vite and browser charts
-│   ├── src/                    # Chat UI, streaming client and analysis panels
-│   └── public/                 # Static assets and Cloudflare headers
-├── api/                        # FastAPI sessions, datasets and response delivery
-├── databuddy.py                # Analysis orchestration
-├── analyst.py                  # Generated calculations and result narration
-├── dataset_profiler.py         # CSV/XLSX loading and dataset profiling
-├── dataset_state.py            # Dataset state interface
-├── message_handler.py          # Routing and conversation replies
-├── executor.py                 # Bounded child-process execution
-├── llm_clients.py              # Model clients, streaming and fallback
-├── response_stream.py          # Progressive response state
-├── conversation_state.py       # Bounded session memory
-├── config.py                   # Environment-backed settings and limits
-├── prompts/                    # Prompt templates by request type
+├── backend/
+│   ├── api/                    # FastAPI sessions, datasets and streamed responses
+│   ├── core/                   # Analysis, providers, memory and execution
+│   │   └── prompts/            # Model prompt templates
+│   ├── legacy/                 # Retained Streamlit UI and state adapters
+│   └── cli.py                  # Terminal interface
+├── frontend/
+│   ├── src/                    # React/TypeScript chat UI and analysis panels
+│   ├── public/                 # Static assets and Cloudflare headers
+│   └── tests/                  # Browser-independent frontend tests
+├── requirements/               # API, locked runtime, legacy and test dependencies
 ├── tests/                      # Offline Python regression tests
-├── scripts/                    # Verification and synthetic browser fixtures
+├── scripts/                    # Local fixtures and acceptance checks
+├── docs/                       # Setup, architecture and verification records
 ├── examples/                   # Small demonstration dataset
-├── app.py                      # Terminal entry point
-├── web_app.py                  # Legacy Streamlit entry point
-├── Dockerfile                  # Production API container
-├── render.yaml                 # Render service blueprint
-├── requirements-api-lock.txt   # Pinned API runtime
-└── docs/                       # Setup, architecture and verification guides
+├── app.py                      # Compatibility launcher for the terminal UI
+├── web_app.py                  # Compatibility launcher for Streamlit
+├── Dockerfile                  # Production API image
+└── render.yaml                 # Render Free blueprint
 ```
 
 ---
@@ -292,13 +287,13 @@ Generated calculations run with basic code checks, a child-process timeout and o
 |---|---|
 | Uploads | 20 MiB maximum, up to 250,000 rows and 200 columns, with further cell/profile/output bounds. |
 | Excel formats | First-sheet `.xlsx` support. `.xls`, `.xlsm` and `.xlsb` are unsupported. |
-| Chat entry | A dataset or the sample must be loaded before any message can be sent. |
+| Chat entry | Model-backed conversation works before upload. Calculations and dataset charts require a loaded file or sample. |
 | Session allowance | Starts at 15 messages and can be adjusted once under the usage policy. Clear/reset preserves it. |
 | Persistence | Data and chat context live in memory and can be lost on expiry or restart. |
 | Free hosting | Render can sleep or restart. CPU and memory limits affect processing time and which datasets fit. |
 | Model availability | Responses depend on provider access, quotas and fallback availability. |
 | Execution | Basic safeguards are intended for trusted personal demonstrations. |
-| Hosted verification | Frontend loading, API health, CORS and sample loading passed. Hosted model streaming and idle-wake acceptance remain pending. |
+| Hosted verification | See the dated acceptance record for the current release checks and remaining hosting limits. |
 
 ---
 

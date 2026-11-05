@@ -31,7 +31,7 @@ The Mistral SDK import compatibility fallback remains: try `mistralai.Mistral`, 
 
 Example: exchanges 1–5 produce five notes; exchange 6 produces a paragraph and clears notes; exchanges 7–11 produce five new notes alongside that paragraph; exchange 12 replaces the paragraph with a merged version and clears notes again.
 
-All fields belong to one `ConversationState`, held by its session's `DataBuddy`. No database, files, shared cache or background job stores this memory. Reset clears all memory fields; replacing the dataset creates fresh state. Browser disconnection/close is not an immediate server-memory deletion guarantee.
+All fields belong to one `ConversationState`, held by its session's `DataBuddy`, which can exist before a dataset is loaded. No database, files, shared cache or background job stores this memory. Reset clears all memory fields. The first successful upload preserves introductory chat and memory. Replacing an existing dataset or removing it clears chat and memory. Browser disconnection/close is not an immediate server-memory deletion guarantee.
 
 ## Failure and call limits
 

@@ -2,6 +2,14 @@
 
 Updated 2026-11-05 (Asia/Kolkata). The current public source repository is [ShekhawaTTiku/DataBuddy](https://github.com/ShekhawaTTiku/DataBuddy), renamed by the owner from DataBuddynew. Local `main` tracks `origin/main`. The frontend is deployed at `https://databuddy-demo.pages.dev` and the API runs on Render Free. See [deployment](#deployment) for verified behavior and remaining acceptance checks.
 
+## Chat before upload
+
+Messages without a dataset use the existing Mistral conversational model directly, with actual app capabilities, dataset availability, server time and bounded session context. They stream through the same job, cancellation, reconnect and accounting flow as dataset responses. Every submitted model-backed message counts toward the existing allowance, including greetings. Memory uses the same six-exchange cycle.
+
+The first successful CSV/XLSX upload or sample selection preserves prior chat and memory. Invalid uploads preserve them too. Replacing an existing dataset, removing it or clearing chat resets the relevant conversation memory while preserving the used allowance. General chat never invokes dataset calculations while no dataset is loaded. App-help replies explain upload/sample actions, and both actions remain available after the welcome screen is replaced by chat.
+
+Python source is grouped under `backend/api`, `backend/core` and `backend/legacy`; prompts live beside the core. Dependency manifests live under `requirements`. Use `python -m backend.cli` for the terminal interface and `uvicorn backend.api.main:app` for the API. Root `app.py` and `web_app.py` remain compatibility launchers. The local private `.env` remains at the repository root and is excluded from Docker.
+
 ## Final stack
 
 - React 19.3.1 + TypeScript 7.0.2 + Vite 8.3.5.
@@ -10,16 +18,16 @@ Updated 2026-11-05 (Asia/Kolkata). The current public source repository is [Shek
 - Python 3.11, FastAPI 0.143.0 and Uvicorn 0.54.0. Existing pandas/NumPy/openpyxl/Plotly analysis and Groq/Gemini/Mistral roles retained.
 - Temporary in-process sessions, no database or accounts. Docker packages the API. Cloudflare Pages Free + Render Free host the deployed app.
 
-`frontend/package-lock.json` locks the browser dependencies. `requirements-api.txt` lists direct Python dependencies; `requirements-api-lock.txt` pins the 47-package tested runtime closure used by Docker. The legacy Streamlit application remains available separately.
+`frontend/package-lock.json` locks the browser dependencies. `requirements/api.txt` lists direct Python dependencies; `requirements/api-lock.txt` pins the 47-package tested runtime closure used by Docker. The legacy Streamlit application remains available separately.
 
 ## Run locally
 
 From the working checkout, using Python 3.11:
 
 ```powershell
-python -m pip install -r requirements-api-lock.txt
+python -m pip install -r requirements/api-lock.txt
 # If .env does not already exist, copy .env.example and fill in keys privately.
-python -m uvicorn api.main:app --host 127.0.0.1 --port 8000 --workers 1 --no-access-log
+python -m uvicorn backend.api.main:app --host 127.0.0.1 --port 8000 --workers 1 --no-access-log
 ```
 
 In a second terminal:
@@ -73,7 +81,7 @@ The Usage control opens on hover/focus or tap. A pointer bridge and short leave 
 ## Offline checks
 
 ```powershell
-python -m pip install -r requirements-web-dev.txt
+python -m pip install -r requirements/web-dev.txt
 python -m pytest -q
 cd frontend
 npm ci

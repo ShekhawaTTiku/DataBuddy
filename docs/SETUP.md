@@ -4,17 +4,17 @@ For the dedicated React/FastAPI app, use [working web app setup](WEBAPP_SETUP.md
 
 ## Verified local environment
 
-Windows and Python 3.11.9. Ten direct runtime dependencies are pinned in requirements.txt; requirements-lock-windows.txt records 63 installed runtime packages, including Google Gen AI for memory. It is an installed-environment snapshot, not a clean-install or cross-platform guarantee. Verify dependency resolution and tests on any different Python/OS before deployment.
+Windows and Python 3.11.9. Ten direct runtime dependencies are pinned in requirements/legacy.txt; requirements-lock-windows.txt records 63 installed runtime packages, including Google Gen AI for memory. It is an installed-environment snapshot, not a clean-install or cross-platform guarantee. Verify dependency resolution and tests on any different Python/OS before deployment.
 
 ```powershell
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install -r requirements-lock-windows.txt
-python -m pip install -r requirements-dev.txt
+python -m pip install -r requirements/dev.txt
 if (-not (Test-Path -LiteralPath .env)) { Copy-Item -LiteralPath .env.example -Destination .env }
 ```
 
-Edit .env privately and replace placeholders. For another OS, use requirements.txt and verify the resolved environment. No installation or package upgrade was performed during this work; existing installed packages were exercised.
+Edit .env privately and replace placeholders. For another OS, use requirements/legacy.txt and verify the resolved environment. No installation or package upgrade was performed during this work; existing installed packages were exercised.
 
 ## Provider settings
 
@@ -50,7 +50,7 @@ Upload cap is fixed at 20 MiB; other fixed limits are documented in config.py. M
 
 ```powershell
 python -m streamlit run web_app.py
-python app.py examples/demo_sales.csv
+python -m backend.cli examples/demo_sales.csv
 python -m pytest -q
 python -m pip check
 ```

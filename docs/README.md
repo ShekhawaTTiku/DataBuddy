@@ -5,6 +5,7 @@ This directory is the source of truth for the current trusted-demo application. 
 | Document | Purpose |
 | --- | --- |
 | [Working web app setup and deployment](WEBAPP_SETUP.md) | Final stack, local run, session/usage policy and deployment configuration |
+| [Chat and dataset lifecycle](CHAT_BEHAVIOR.md) | Model-backed chat before upload, memory transitions, allowance and acceptance checks |
 | [Streaming and response recovery](STREAMING.md) | Incremental answers, early results, reconnect, Stop, fallback and once-per-exchange memory/accounting |
 | [Web app verification](WEBAPP_VERIFICATION.md) | Offline API/core tests, production build, browser/accessibility checks and hosting limits |
 | [Linux container and resource verification](CONTAINER_VERIFICATION.md) | Docker/WSL setup, fresh Linux tests, capped workloads, production smoke checks and hosted limitations |
