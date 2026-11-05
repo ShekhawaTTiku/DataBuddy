@@ -37,4 +37,6 @@ The offline suite covers provider dispatch before upload, prompt state, context,
 
 `python scripts/verify_live_chat.py --live` explicitly enables real provider calls against a local API. Add `--base-url https://databuddynew.onrender.com` for the approved hosted API. It uses synthetic questions and sample data and prints aggregate pass/fail checks. It does not print model response bodies or credentials. See the dated [work log](WORK_LOG.md) for results.
 
+For the hosted browser check, first run `python scripts/verify_live_chat.py --write-browser-fixtures` to create synthetic CSV/XLSX inputs under ignored output; this command uses no provider quota. Open the approved Pages site in a fresh Playwright CLI session, then run `playwright-cli run-code --filename scripts/verify_hosted_chat_ui.js` from the checkout. This opt-in callback uses nine real model-backed submissions, checks the first-upload/name lifecycle, actual calculations/charts, PNG/HTML downloads, reload, Stop and narrow layouts, and rejects browser console errors. Run only with provider-usage authorization. Existing test sessions count toward the four-session capacity until expiry or restart.
+
 Basic calculation checks and Docker packaging remain **not a hardened security sandbox**. This application is a trusted personal demonstration.
