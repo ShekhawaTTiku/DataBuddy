@@ -488,11 +488,6 @@ export default function App() {
   async function send(e: FormEvent) {
     e.preventDefault();
     if (busy || submission.current) return;
-    if (!dataset) {
-      setError("Upload data or try the sample first.");
-      composer.current?.focus();
-      return;
-    }
     if (!draft.trim()) {
       setError("Enter a question first.");
       composer.current?.focus();
@@ -757,12 +752,12 @@ export default function App() {
                       <BarChart3 size={30} strokeWidth={1.6} />
                     </span>
                     <h1>
-                      {dataset ? "Ask about your data" : "Start with your data"}
+                      {dataset ? "Ask about your data" : "Hi, I’m DataBuddy"}
                     </h1>
                     <p>
                       {dataset
                         ? `${number(dataset.rows)} rows ready to explore.`
-                        : "Upload a spreadsheet, then ask a question."}
+                        : "Start a conversation, or upload a spreadsheet to explore."}
                     </p>
                     {!dataset ? (
                       <>
@@ -942,6 +937,17 @@ export default function App() {
             <ConversationScrollButton />
           </Conversation>
           <div className="composer-area">
+            {!dataset && !!session?.turns.length ? (
+              <div className="chat-upload-actions" aria-label="Add data to this conversation">
+                <span className="small muted">Ready to explore a dataset?</span>
+                <button className="text-button" disabled={busy} onClick={() => input.current?.click()}>
+                  Upload data
+                </button>
+                <button className="text-button" disabled={busy} onClick={() => choose(undefined, true)}>
+                  Try sample data
+                </button>
+              </div>
+            ) : null}
             <TaskSuggestions
               dataset={dataset}
               disabled={busy || !session || session.usage.remaining === 0}
@@ -1002,7 +1008,7 @@ export default function App() {
                 placeholder={
                   dataset
                     ? "Ask a question about your data…"
-                    : "What would you like to explore…"
+                    : "Say hello, ask a question, or get help uploading…"
                 }
                 aria-describedby={highInput ? "input-warning" : undefined}
                 onKeyDown={(e) => {

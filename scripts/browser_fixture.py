@@ -38,7 +38,7 @@ def route(question, **kwargs):
     usage('Mistral'); time.sleep(.3)
     if 'provider failure' in question.lower():
         raise ProviderUnavailableError('The provider is unavailable. Try again later.')
-    if 'hello' in question.lower():
+    if any(word in question.lower() for word in ['hello', 'name', 'remember']):
         return {'route': 'conversation', 'reply': ''}
     return {'route': 'visualization' if 'chart' in question.lower() else 'analysis'}
 
@@ -107,7 +107,19 @@ analyst.generate_code = code
 analyst.generate_chart_code = chart
 analyst.write_answer = answer
 analyst.write_chart_insight = insight
-message_handler.answer_conversation = lambda *args: incremental('Hello! I can help explore your dataset, calculate results and create charts. ' * (20 if 'slow' in str(args).lower() else 4))
+def conversation(question, context, **kwargs):
+    usage('Mistral')
+    if 'provider failure' in question.lower():
+        raise ProviderUnavailableError('The provider is unavailable. Try again later.')
+    if 'name' in question.lower() and 'Mira' in context:
+        return incremental('Your name is Mira. I remember it for this session.')
+    if question.lower().startswith('hi, my name is mira'):
+        return incremental('Hi Mira! How can I help you today?')
+    if not kwargs.get('dataset_loaded', True) and any(word in question.lower() for word in ['sales', 'chart', 'rows']):
+        return incremental('Upload your CSV or XLSX file, or choose Try sample data, so I can calculate that from your data.')
+    return incremental('Hello! I can help explore your dataset, calculate results and create charts. ' * (20 if 'slow' in question.lower() else 4))
+
+message_handler.answer_conversation = conversation
 conversation_state.call_memory_llm = memory
 
 if __name__ == '__main__':
