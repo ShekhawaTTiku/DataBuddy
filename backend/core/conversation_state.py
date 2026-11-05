@@ -7,8 +7,8 @@ from dataclasses import dataclass, field
 import json
 from pathlib import Path
 
-import config
-from llm_clients import ProviderError, call_memory_llm, request_budget
+from backend.core import config
+from backend.core.llm_clients import ProviderError, call_memory_llm, request_budget
 
 _MAX_CHART_HISTORY = 5
 NO_ANALYSIS_CONTEXT = "No previous data analysis. Do not infer filters from ordinary conversation."

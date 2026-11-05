@@ -8,12 +8,12 @@ import math
 from pathlib import Path
 import sys
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-import analyst
-import config
-import conversation_state
-import message_handler
-from databuddy import DataBuddy
-from api.main import SAMPLE
+from backend.core import analyst
+from backend.core import config
+from backend.core import conversation_state
+from backend.core import message_handler
+from backend.core.databuddy import DataBuddy
+from backend.api.main import SAMPLE
 
 
 def main():

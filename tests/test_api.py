@@ -7,12 +7,10 @@ import pandas as pd
 import pytest
 from fastapi.testclient import TestClient
 
-from api import main
-from databuddy import DataBuddy, AskResult
-import telemetry
-import llm_clients
-
-
+from backend.api import main
+from backend.core.databuddy import DataBuddy, AskResult
+from backend.core import telemetry
+from backend.core import llm_clients
 class FakeBuddy(DataBuddy):
     count = 0
     total = 1000
@@ -208,7 +206,7 @@ def test_usage_allowlist_and_context_cleanup():
 def test_real_groq_metadata_collected_without_network(monkeypatch):
     import groq
     import httpx
-    import config
+    from backend.core import config
     real = groq.Groq
     monkeypatch.setattr(config, 'GROQ_API_KEY', 'offline-key')
     def respond(request):

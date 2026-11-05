@@ -5,8 +5,8 @@ import zipfile
 import pandas as pd
 import pytest
 
-import config
-from dataset_profiler import load_and_profile
+from backend.core import config
+from backend.core.dataset_profiler import load_and_profile
 
 
 def test_csv_values_and_leading_zero_identifiers_are_preserved():

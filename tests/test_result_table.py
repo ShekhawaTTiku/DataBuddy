@@ -1,5 +1,5 @@
 import pandas as pd
-from executor import run_code
+from backend.core.executor import run_code
 
 
 def test_period_index_table_keeps_calculation_and_bounded_cells():

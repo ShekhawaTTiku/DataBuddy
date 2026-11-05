@@ -24,10 +24,10 @@ def main():
         parser.error("Live calls require the explicit --live flag. No provider was called.")
 
     import numpy as np
-    import config
-    import llm_clients
-    from databuddy import DataBuddy
-    from ui_state import initialize_session, replace_dataset, reset_conversation
+    from backend.core import config
+    from backend.core import llm_clients
+    from backend.core.databuddy import DataBuddy
+    from backend.legacy.ui_state import initialize_session, replace_dataset, reset_conversation
 
     path = ROOT / "uploads" / "Superstore.csv"
     buddy = DataBuddy(path)

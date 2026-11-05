@@ -1,7 +1,7 @@
 from pathlib import Path
 import pytest
-import config
-from ui_state import initialize_session, replace_dataset, clear_dataset, reset_conversation, append_message, upload_fingerprint
+from backend.core import config
+from backend.legacy.ui_state import initialize_session, replace_dataset, clear_dataset, reset_conversation, append_message, upload_fingerprint
 
 
 def new_state():

@@ -1,7 +1,7 @@
 from types import SimpleNamespace
 
-import app
-from databuddy import AskResult
+from backend import cli as app
+from backend.core.databuddy import AskResult
 
 
 def test_cli_shows_preserved_computation(monkeypatch, capsys):
@@ -25,7 +25,7 @@ def test_cli_shows_preserved_computation(monkeypatch, capsys):
 
 def test_cli_reset_clears_session_without_provider_calls(monkeypatch, capsys):
     from pathlib import Path
-    from databuddy import DataBuddy
+    from backend.core.databuddy import DataBuddy
     buddy = DataBuddy(Path(__file__).resolve().parents[1] / "examples" / "demo_sales.csv")
     buddy.conversation.add_turn("previous", "answer")
     monkeypatch.setattr(app, "DataBuddy", lambda _: buddy)

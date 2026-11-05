@@ -5,14 +5,14 @@ from types import SimpleNamespace
 import pytest
 from fastapi.testclient import TestClient
 
-import analyst
-import conversation_state
-import message_handler
-import response_stream
-import telemetry
-from api.main import create_app
-from databuddy import DataBuddy
-from llm_clients import ProviderUnavailableError
+from backend.core import analyst
+from backend.core import conversation_state
+from backend.core import message_handler
+from backend.core import response_stream
+from backend.core import telemetry
+from backend.api.main import create_app
+from backend.core.databuddy import DataBuddy
+from backend.core.llm_clients import ProviderUnavailableError
 
 
 @pytest.fixture

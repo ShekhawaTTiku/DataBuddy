@@ -2,8 +2,7 @@
 from contextlib import contextmanager
 from contextvars import ContextVar
 from datetime import datetime, timezone
-import response_stream
-
+from backend.core import response_stream
 _observer = ContextVar("databuddy_observer", default=None)
 
 

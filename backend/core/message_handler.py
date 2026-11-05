@@ -5,9 +5,9 @@ from datetime import datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
-import config
-import response_stream
-from llm_clients import ProviderError, ProviderUnavailableError, call_conversation_llm, call_explanation_llm, classify_message
+from backend.core import config
+from backend.core import response_stream
+from backend.core.llm_clients import ProviderError, ProviderUnavailableError, call_conversation_llm, call_explanation_llm, classify_message
 
 _PROMPTS_DIR = Path(__file__).parent / "prompts"
 _TIME_QUERY = re.compile(

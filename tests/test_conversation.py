@@ -1,6 +1,6 @@
 """Session history bounds, privacy separation and reset behavior."""
-import config
-from conversation_state import ConversationState, NO_ANALYSIS_CONTEXT
+from backend.core import config
+from backend.core.conversation_state import ConversationState, NO_ANALYSIS_CONTEXT
 
 
 def test_conversations_do_not_share_state():

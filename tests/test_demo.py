@@ -1,7 +1,7 @@
 from pathlib import Path
 import pytest
-from databuddy import DataBuddy
-from executor import run_code
+from backend.core.databuddy import DataBuddy
+from backend.core.executor import run_code
 
 DEMO=Path(__file__).resolve().parents[1]/"examples"/"demo_sales.csv"
 

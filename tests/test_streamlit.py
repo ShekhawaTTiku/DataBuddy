@@ -4,11 +4,11 @@ from unittest.mock import MagicMock
 import pytest
 from streamlit.testing.v1 import AppTest
 
-import config
-import analyst
-import message_handler
-import conversation_state
-from ui_state import initialize_session, replace_dataset
+from backend.core import config
+from backend.core import analyst
+from backend.core import message_handler
+from backend.core import conversation_state
+from backend.legacy.ui_state import initialize_session, replace_dataset
 
 ROOT=Path(__file__).resolve().parents[1]
 
@@ -107,7 +107,7 @@ def test_chart_export_not_generated_on_every_render(monkeypatch):
 
 
 def test_real_upload_replacement_and_rejected_file_is_not_reparsed(monkeypatch):
-    import ui_state
+    from backend.legacy import ui_state
     app=loaded_app()
     app.get("file_uploader")[0].set_value(("sales.csv",b"sales\n99\n","text/csv")).run()
     assert not app.exception

@@ -11,8 +11,7 @@ from typing import Any, BinaryIO
 import numpy as np
 import pandas as pd
 
-import config
-
+from backend.core import config
 SUPPORTED_EXTENSIONS = ("csv", "xlsx")
 _ISO_DATE = re.compile(r"^\d{4}-\d{2}-\d{2}(?:[ T].+)?$")
 _DATE_LIKE = re.compile(r"^\d{1,4}[-/]\d{1,2}[-/]\d{1,4}(?:[ T]\d{1,2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:?\d{2})?)?$")

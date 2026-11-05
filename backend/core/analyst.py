@@ -2,9 +2,9 @@
 import re
 from pathlib import Path
 
-import config
-from llm_clients import call_analysis_llm, call_narration_llm
-from executor import ExecutionResult
+from backend.core import config
+from backend.core.llm_clients import call_analysis_llm, call_narration_llm
+from backend.core.executor import ExecutionResult
 
 _PROMPTS_DIR = Path(__file__).parent / "prompts"
 _PLACEHOLDER = re.compile(r"\{\{(\w+)\}\}")

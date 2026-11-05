@@ -30,17 +30,17 @@ def main():
             peak[0] = max(peak[0], total)
     monitor = threading.Thread(target=measure, daemon=True); monitor.start()
     started = time.monotonic()
-    import config
-    import executor
-    from databuddy import DataBuddy
+    from backend.core import config
+    from backend.core import executor
+    from backend.core.databuddy import DataBuddy
     # Include providers/API loaded in a warm process, without making requests.
     import groq
     import google.genai
     import mistralai.client
-    import api.main
+    import backend.api.main
     executor.EXEC_TIMEOUT_SECONDS = 30
     if args.case == 'sample':
-        from api.main import SAMPLE
+        from backend.api.main import SAMPLE
         payload = SAMPLE
     elif args.case == 'near-limit':
         # 240k rows, ~19.5 MiB, low-cardinality strings. All synthetic.

@@ -9,18 +9,18 @@ import socket
 import os
 import time
 from types import SimpleNamespace
-import analyst
-import config
-import conversation_state
-import message_handler
-import telemetry
-import response_stream
-from llm_clients import ProviderUnavailableError
+from backend.core import analyst
+from backend.core import config
+from backend.core import conversation_state
+from backend.core import message_handler
+from backend.core import telemetry
+from backend.core import response_stream
+from backend.core.llm_clients import ProviderUnavailableError
 
 config.GROQ_API_KEY = config.GEMINI_API_KEY = config.MISTRAL_API_KEY = None
 os.environ['DATABUDDY_ORIGINS'] = 'http://localhost:5173,http://127.0.0.1:5173,http://127.0.0.1:4173,http://127.0.0.1:5174,http://127.0.0.1:4174'
 config.EXEC_TIMEOUT_SECONDS = 20
-import executor
+from backend.core import executor
 executor.EXEC_TIMEOUT_SECONDS = 20
 original_connect = socket.socket.connect
 def local_only(sock, address):
@@ -134,7 +134,7 @@ if __name__ == '__main__':
                       'Category': ['A', 'B', 'B', 'A']}).to_csv(folder / 'text-suggestions.csv', index=False)
         raise SystemExit(0)
     import uvicorn
-    from api.main import app
+    from backend.api.main import app
 
     @app.get('/api/verification-fixture')
     def verification_fixture():

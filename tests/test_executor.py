@@ -6,8 +6,8 @@ import tempfile
 from unittest.mock import patch
 import pandas as pd
 import pytest
-import executor
-from _runner import _format_result
+from backend.core import executor
+from backend.core._runner import _format_result
 
 @pytest.fixture
 def frame():

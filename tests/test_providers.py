@@ -3,10 +3,8 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
-import config
-import llm_clients as clients
-
-
+from backend.core import config
+from backend.core import llm_clients as clients
 class FakeError(Exception):
     def __init__(self, status):
         self.status_code = status

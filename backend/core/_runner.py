@@ -18,8 +18,8 @@ import plotly.io as pio
 from plotly.subplots import make_subplots
 
 # -I excludes the script directory; load our dependency-free policy module.
-sys.path.insert(0, str(Path(__file__).resolve().parent))
-from execution_policy import ALLOWED_IMPORTS, check_code
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+from backend.core.execution_policy import ALLOWED_IMPORTS, check_code
 
 def _safe_import(name, globals=None, locals=None, fromlist=(), level=0):
     if level or name not in ALLOWED_IMPORTS:

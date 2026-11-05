@@ -3,11 +3,11 @@ from unittest.mock import MagicMock
 
 import pytest
 
-import config
-import conversation_state as memory
-import databuddy
-from llm_clients import ProviderError, ProviderUnavailableError
-from ui_state import initialize_session, replace_dataset, reset_conversation
+from backend.core import config
+from backend.core import conversation_state as memory
+from backend.core import databuddy
+from backend.core.llm_clients import ProviderError, ProviderUnavailableError
+from backend.legacy.ui_state import initialize_session, replace_dataset, reset_conversation
 
 
 def test_six_notes_roll_into_one_paragraph_and_next_batch_merges(monkeypatch):
@@ -156,7 +156,7 @@ def test_permanent_routing_errors_are_visible(monkeypatch):
 
 
 def test_sixth_note_and_compression_share_one_request_and_deadline(monkeypatch):
-    import llm_clients
+    from backend.core import llm_clients
     clock = [100.0]
     monkeypatch.setattr(llm_clients.time, "monotonic", lambda: clock[0])
     monkeypatch.setattr(config, "MEMORY_TIMEOUT_SECONDS", 10)
@@ -174,7 +174,7 @@ def test_sixth_note_and_compression_share_one_request_and_deadline(monkeypatch):
 
 
 def test_global_deadline_prevents_memory_network_requests(monkeypatch):
-    import llm_clients
+    from backend.core import llm_clients
     from google import genai
     monkeypatch.setattr(config, "GEMINI_API_KEY", "dummy")
     factory = MagicMock(); monkeypatch.setattr(genai, "Client", factory)

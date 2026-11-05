@@ -19,14 +19,14 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
 from starlette.concurrency import run_in_threadpool
 
-import config
-from conversation_state import ConversationState
-from databuddy import DataBuddy, AskResult
-from llm_clients import ProviderError
-import telemetry
-import response_stream
-from api.streaming import JobDelivery, frame
-from api.dataset_metadata import suggestion_columns
+from backend.core import config
+from backend.core.conversation_state import ConversationState
+from backend.core.databuddy import DataBuddy, AskResult
+from backend.core.llm_clients import ProviderError
+from backend.core import telemetry
+from backend.core import response_stream
+from backend.api.streaming import JobDelivery, frame
+from backend.api.dataset_metadata import suggestion_columns
 
 SESSION_TTL = 1800
 MAX_SESSIONS = 4

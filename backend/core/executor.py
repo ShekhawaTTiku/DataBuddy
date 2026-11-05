@@ -14,10 +14,10 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import pandas as pd
-import config
-import response_stream
+from backend.core import config
+from backend.core import response_stream
 import time
-from execution_policy import check_code
+from backend.core.execution_policy import check_code
 
 @dataclass
 class ExecutionResult:

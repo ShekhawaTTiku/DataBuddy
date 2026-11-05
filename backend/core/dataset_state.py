@@ -1,5 +1,5 @@
 """Dataset State public interface; profiling implementation remains local."""
-from dataset_profiler import DatasetProfile, SUPPORTED_EXTENSIONS, load_and_profile
+from backend.core.dataset_profiler import DatasetProfile, SUPPORTED_EXTENSIONS, load_and_profile
 
 DatasetState = DatasetProfile
 

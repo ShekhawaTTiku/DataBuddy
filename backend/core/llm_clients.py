@@ -4,10 +4,9 @@ from contextvars import ContextVar
 import random
 import time
 
-import config
-import telemetry
-import response_stream
-
+from backend.core import config
+from backend.core import telemetry
+from backend.core import response_stream
 _deadline = ContextVar("databuddy_provider_deadline", default=None)
 
 

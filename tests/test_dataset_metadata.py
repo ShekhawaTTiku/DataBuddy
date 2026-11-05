@@ -1,7 +1,7 @@
 """Offline, value-free suggestion metadata and lifecycle regressions."""
 import pandas as pd
 
-from api.dataset_metadata import suggestion_columns
+from backend.api.dataset_metadata import suggestion_columns
 
 
 def test_column_kinds_identifiers_counts_and_no_values():

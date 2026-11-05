@@ -2,7 +2,7 @@
 from dataclasses import dataclass, field
 import json
 
-from response_stream import Cancellation
+from backend.core.response_stream import Cancellation
 
 
 @dataclass

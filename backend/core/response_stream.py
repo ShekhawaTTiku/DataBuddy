@@ -4,9 +4,7 @@ from contextvars import ContextVar
 from dataclasses import dataclass, field
 import threading
 
-import config
-
-
+from backend.core import config
 class ResponseCancelled(Exception):
     """The user stopped this exchange; bookkeeping still finishes once."""
 

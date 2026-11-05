@@ -3,9 +3,7 @@ import socket
 
 import pytest
 
-import config
-
-
+from backend.core import config
 @pytest.fixture(autouse=True)
 def offline_only(monkeypatch):
     original_connect = socket.socket.connect

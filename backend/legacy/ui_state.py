@@ -2,8 +2,8 @@
 import hashlib
 import uuid
 
-import config
-from databuddy import DataBuddy
+from backend.core import config
+from backend.core.databuddy import DataBuddy
 
 
 def initialize_session(state) -> None:

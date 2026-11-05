@@ -10,16 +10,16 @@ import httpx
 import pytest
 import uvicorn
 
-import analyst
-import config
-import conversation_state
-import llm_clients
-import message_handler
-import response_stream as delivery
-import telemetry
-from api.main import create_app
-from databuddy import AskResult, DataBuddy
-from executor import ExecutionResult
+from backend.core import analyst
+from backend.core import config
+from backend.core import conversation_state
+from backend.core import llm_clients
+from backend.core import message_handler
+from backend.core import response_stream as delivery
+from backend.core import telemetry
+from backend.api.main import create_app
+from backend.core.databuddy import AskResult, DataBuddy
+from backend.core.executor import ExecutionResult
 
 
 def chunk(text=None, finish=None, usage=None):
@@ -156,7 +156,7 @@ def test_cancellation_keeps_evidence_and_records_one_stopped_exchange(monkeypatc
     monkeypatch.setattr(message_handler, "route_message", lambda **_: {"route": "analysis"})
     code = MagicMock(return_value="result = 10")
     monkeypatch.setattr(analyst, "generate_code", code)
-    monkeypatch.setattr("executor.run_code", lambda *_: ExecutionResult(True, "10", None))
+    monkeypatch.setattr("backend.core.executor.run_code", lambda *_: ExecutionResult(True, "10", None))
     memory = MagicMock(return_value="Stopped after result 10.")
     monkeypatch.setattr(conversation_state, "call_memory_llm", memory)
     token = threading.Event()
@@ -201,7 +201,7 @@ def test_streaming_answer_precedes_memory_and_six_exchange_cycle_is_unchanged(mo
 
 
 def test_worker_cancellation_reaps_process_and_does_not_wait_for_timeout(monkeypatch):
-    import executor
+    from backend.core import executor
     import pandas as pd
     from pathlib import Path
     token = threading.Event()
@@ -222,7 +222,8 @@ def test_worker_cancellation_reaps_process_and_does_not_wait_for_timeout(monkeyp
     assert all(not folder.exists() for folder in folders)
 
 
-def test_real_http_incremental_delivery_reconnect_and_idempotent_cancel(monkeypatch):
+@pytest.mark.parametrize('with_dataset', [False, True])
+def test_real_http_incremental_delivery_reconnect_and_idempotent_cancel(monkeypatch, with_dataset):
     class Buddy(DataBuddy):
         calls = 0
         def _ask(self, question):
@@ -256,7 +257,8 @@ def test_real_http_incremental_delivery_reconnect_and_idempotent_cancel(monkeypa
         assert server.started
         with httpx.Client(base_url=f"http://127.0.0.1:{port}", timeout=8) as client:
             headers = {"Authorization": "Bearer " + client.post("/api/session").json()["token"]}
-            assert client.post("/api/sample", headers=headers).status_code == 200
+            if with_dataset:
+                assert client.post("/api/sample", headers=headers).status_code == 200
             key = "http-stream-job-01"
             message = {"question": "Total sales?", "request_id": key}
             assert client.post("/api/messages", headers=headers, json=message).status_code == 202

@@ -4,12 +4,12 @@ from types import SimpleNamespace
 import pandas as pd
 import pytest
 
-import analyst
-import config
-import databuddy
-import executor
-import message_handler
-from conversation_state import ConversationState
+from backend.core import analyst
+from backend.core import config
+from backend.core import databuddy
+from backend.core import executor
+from backend.core import message_handler
+from backend.core.conversation_state import ConversationState
 
 
 @pytest.fixture(autouse=True)

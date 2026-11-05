@@ -2,15 +2,15 @@
 import re
 from dataclasses import dataclass
 
-import analyst
-import config
-import executor
-import message_handler
-import telemetry
-import response_stream
-from conversation_state import ConversationState
-from dataset_state import load_and_profile
-from llm_clients import ProviderError, request_budget
+from backend.core import analyst
+from backend.core import config
+from backend.core import executor
+from backend.core import message_handler
+from backend.core import telemetry
+from backend.core import response_stream
+from backend.core.conversation_state import ConversationState
+from backend.core.dataset_state import load_and_profile
+from backend.core.llm_clients import ProviderError, request_budget
 
 
 @dataclass
