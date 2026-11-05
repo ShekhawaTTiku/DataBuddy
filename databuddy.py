@@ -35,8 +35,8 @@ def _nonempty(text: str) -> str:
 
 
 class DataBuddy:
-    def __init__(self, dataset_source, filename: str | None = None):
-        self.dataset = load_and_profile(dataset_source, filename=filename)
+    def __init__(self, dataset_source=None, filename: str | None = None):
+        self.dataset = load_and_profile(dataset_source, filename=filename) if dataset_source is not None else None
         self.conversation = ConversationState()
 
     def _remember_analysis(self, question: str, code: str, execution, answer: str) -> None:
@@ -134,6 +134,11 @@ class DataBuddy:
                 status="clarification",
             )
         context = self.conversation.to_prompt_text()
+        if self.dataset is None:
+            telemetry.stage("Writing answer")
+            return AskResult(answer=_nonempty(message_handler.answer_conversation(
+                question, context, dataset_loaded=False,
+            )))
         if "?" not in question and re.search(r"\b(?:remember|keep in mind)\b", question, re.IGNORECASE):
             answer = "Got it. I'll keep that in mind for this session without applying it as a data filter."
             return AskResult(answer=answer)

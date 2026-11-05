@@ -149,7 +149,7 @@ def create_app(buddy_factory=DataBuddy):
     def snapshot(s):
         with s.lock:
             dataset = None
-            if s.buddy:
+            if s.buddy and s.buddy.dataset is not None:
                 d = s.buddy.dataset
                 preview = d.df.head(12).copy()
                 # Bound cell strings; JSON conversion normalizes dates/nulls/numeric types.
@@ -264,7 +264,12 @@ def create_app(buddy_factory=DataBuddy):
                 raise HTTPException(413, "This dataset needs more memory than the demo allows. Use fewer rows or columns.")
             columns = suggestion_columns(buddy.dataset.df)
             with s.lock:
-                s.buddy, s.frame_bytes, s.turns, s.job = buddy, size, [], None
+                first_upload = s.buddy is not None and s.buddy.dataset is None
+                if first_upload:
+                    buddy.conversation = s.buddy.conversation
+                else:
+                    s.turns = []
+                s.buddy, s.frame_bytes, s.job = buddy, size, None
                 s.delivery = None
                 s.suggestion_columns = columns
         except ValueError as exc:
@@ -352,7 +357,7 @@ def create_app(buddy_factory=DataBuddy):
         except ProviderError as exc:
             result = AskResult(str(exc), status="error")
         except Exception:
-            result = AskResult("The analysis could not finish. Try a simpler question.", status="error")
+            result = AskResult("The response could not finish. Please try again.", status="error")
         finally:
             usage = telemetry.summarize(events)
             with s.lock:
@@ -381,12 +386,12 @@ def create_app(buddy_factory=DataBuddy):
                     raise HTTPException(409, "This request identifier was already used for a different question.")
                 return {"id": message.request_id}
             idle(s)
-            if not s.buddy:
-                raise HTTPException(409, "Upload data or try the sample first.")
             if s.used >= s.allowance:
                 raise HTTPException(429, "This session has reached its message allowance.")
             if not work_gate.acquire(blocking=False):
                 raise HTTPException(503, "Another analysis is running. Try again shortly.")
+            if s.buddy is None:
+                s.buddy = buddy_factory()
             s.used += 1
             s.requests[message.request_id] = question
             s.delivery = JobDelivery()

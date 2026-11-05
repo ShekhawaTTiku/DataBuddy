@@ -91,9 +91,11 @@ def route_message(question: str, columns: list[str], conversation: str,
     return {"route": "conversation", "reply": ""}
 
 
-def answer_conversation(question: str, conversation: str) -> str:
+def answer_conversation(question: str, conversation: str, *, dataset_loaded: bool = True) -> str:
     template = (_PROMPTS_DIR / "conversation_response.txt").read_text(encoding="utf-8")
-    prompt = _fill(template, conversation=(conversation or "None yet.")[:config.MAX_CONTEXT_CHARS], question=question)
+    prompt = _fill(template, conversation=(conversation or "None yet.")[:config.MAX_CONTEXT_CHARS], question=question,
+                   dataset_status="A dataset is loaded." if dataset_loaded else "No dataset is loaded. No dataset calculations or charts exist in this session.",
+                   clock=answer_clock())
     return call_conversation_llm(prompt)
 
 
