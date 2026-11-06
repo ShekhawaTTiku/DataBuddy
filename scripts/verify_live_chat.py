@@ -102,6 +102,7 @@ def main():
         assert response.json()['dataset'] is not None and response.json()['turns'] == []
         _, turn = ask('What name should you call me?')
         assert not re.search(r'\b(?:DJ|Mira)\b', turn['answer'], re.I)
+        assert re.search(r'haven.t|not (?:told|provided)|don.t know|what.*(?:name|call)|prefer', turn['answer'], re.I)
         passed('clear chat forgets the introduction')
         response = client.delete('dataset', headers=headers)
         response.raise_for_status()

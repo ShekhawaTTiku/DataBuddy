@@ -1,5 +1,12 @@
 # DataBuddy readiness work log
 
+## Interrupted release recovery and name-role clarification — 2026-11-06
+
+- Recovered the actual interrupted turn, Git batches, clean local/remote `6ea1910` checkpoint and aggregate verification artifacts. The interruption was the agent's usage limit. Its final hosted API command had completed successfully: ten submissions, with progressive answer delivery observed in seven. Reviewed current source/configuration/imports/tests, root instructions and relevant architecture/setup/provider/security/status guides before changing files. No database or migrations exist by design.
+- Fresh checks passed 198 offline tests in 47.24 seconds, ten frontend tests, production build, Python dependency consistency and a production npm audit with zero vulnerabilities. The existing upstream Starlette/httpx warning remains. Both Cloudflare project checks passed; the public frontend and API health/CORS/CSP checks passed.
+- The recovery Playwright run passed nine real-provider submissions covering greetings, corrected-name recall, CSV first-upload continuity, actual total/chart, PNG/HTML export, XLSX replacement, reload, Stop and 320/390-pixel layouts, with zero console/page errors. Closer response inspection found that an unknown-user-name question could be answered with DataBuddy's own name. Clarified user/assistant speaker roles in the conversation prompt and strengthened both live acceptance tools to require an unknown-name acknowledgment after reset/replacement.
+- After that focused prompt correction, all 198 offline tests passed again in 40.01 seconds. Five opt-in local real-provider checks passed unknown name before upload, introduction/recall, clear with a loaded dataset, and the assistant's identity. Only synthetic inputs and aggregate outcomes are retained. Current documentation paths/status and the recoverable progress checkpoint are being corrected; final hosted/publication results follow below.
+
 ## Model-backed chat and repository organization — 2026-11-05
 
 - The owner authorized implementation, complete local verification, repository organization, batched Git publication and hosted redeployment/acceptance. Added model-backed chat before upload using the existing Mistral conversation path. Its prompt carries actual app facts, dataset availability, bounded context and the configured clock, with whole-message handling and guidance against invented calculations or personal facts. All model-backed submissions count toward the existing allowance and six-exchange memory cycle.

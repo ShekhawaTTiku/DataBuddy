@@ -74,6 +74,7 @@ async function verifyHostedChatUI(page) {
   assert(/\b60\b/.test(await lastAnswer()), 'Actual XLSX computation');
   await send('What name should you call me?');
   assert(!/\b(?:Sky|Asha)\b/i.test(await lastAnswer()), 'Replacement forgets prior name');
+  assert(/haven.t|haven’t|not (?:told|provided)|don.t know|don’t know|what.*(?:name|call)|prefer/i.test(await lastAnswer()), 'Unknown user name is acknowledged without confusing speaker roles');
   await page.getByRole('textbox', { name: 'Question about your data' }).fill('Explain mean, median and variance in detail, with several examples.');
   await page.getByRole('button', { name: 'Send message', exact: true }).click();
   submissions++;
