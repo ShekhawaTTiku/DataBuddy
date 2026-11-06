@@ -13,7 +13,10 @@ async function verifyMarkdownUI(page) {
   await page.getByRole('button', {name:'Send message',exact:true}).click();
   const table = page.getByRole('table', {name:'Response table',exact:true});
   await table.waitFor();
-  await page.waitForFunction(() => !document.querySelector('[aria-label="Send message"]').disabled);
+  await page.waitForFunction(() => {
+    const send = document.querySelector('[aria-label="Send message"]');
+    return send && !send.disabled;
+  });
   await page.unroute('**/api/messages', guard);
   for (const width of [390,320]) {
     await page.setViewportSize({width,height:900});

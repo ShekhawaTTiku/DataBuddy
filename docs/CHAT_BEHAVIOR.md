@@ -8,6 +8,8 @@ The existing Mistral conversation model receives the message, bounded conversati
 
 The prompt asks the model to handle the whole message. A greeting combined with a sales calculation request should invite an upload or sample. It must not invent a loaded dataset, computation or previous chart. It should distinguish a name introduction from a sentence such as “I'm having trouble uploading”, and follow later explicit name corrections. These are model-guided behaviors and can still be misinterpreted.
 
+Name questions distinguish speaker roles: “What should you call me?” asks for the user's supplied name, or an acknowledgment that it has not been supplied. “What should I call you?” asks for DataBuddy's name. This clarification was added after hosted inspection found the model occasionally confusing the two.
+
 Upload data and Try sample data remain available after the initial welcome screen becomes a conversation. Simple greetings should receive concise answers without repeating upload instructions in every reply.
 
 ## Upload, reset and removal
@@ -34,6 +36,8 @@ Duplicate request IDs attach to the original request. Stop and reconnection reus
 The offline suite covers provider dispatch before upload, prompt state, context, duplicate submissions, validation, allowance exhaustion, failures, first-upload preservation, invalid uploads, replacement, reset and removal. Real-socket streaming/reconnect/Stop checks run with and without a dataset. Regression tests block external provider connections.
 
 `scripts/verify_chat_ui.js` verifies the local browser flow against `scripts/browser_fixture.py`. `scripts/verify_streaming_ui.js` checks incremental answers, early charts, Stop, reconnect, mobile layout and accessibility. Screenshots use synthetic content and stay under ignored `output/playwright`.
+
+`scripts/verify_markdown_ui.js` uses the same isolated fixture/frontend on 8001/5174 to check keyboard focus and ArrowRight scrolling of a wide generated table at 390/320px. It verifies fixture identity and refuses non-fixture inference. Production response tables retain Streamdown's copy/download controls and provide an explicit named tab stop.
 
 `python scripts/verify_live_chat.py --live` explicitly enables real provider calls against a local API. Add `--base-url https://databuddynew.onrender.com` for the approved hosted API. It uses synthetic questions and sample data and prints aggregate pass/fail checks. It does not print model response bodies or credentials. See the dated [work log](WORK_LOG.md) for results.
 

@@ -1,5 +1,24 @@
 # GitHub publication checkpoints
 
+## Model-backed chat release and interrupted-session recovery — 2026-11-06
+
+The owner authorized model-backed chat before upload, local verification, repository organization, batched terminal publication and hosted redeployment/acceptance. Work continues only in the current checkout. `origin` is the public [ShekhawaTTiku/DataBuddy](https://github.com/ShekhawaTTiku/DataBuddy) repository; the original backup and private DataBuddy1 repository are not push targets.
+
+| Batch | Content | Commit |
+| --- | --- | --- |
+| 1 | Optional-dataset chat, model prompts and regressions | `247505a` |
+| 2 | Frontend chat-first flow, first-upload continuity and browser acceptance | `103711d` |
+| 3 | Backend/API/core/legacy packages, requirements, imports and Docker | `91f2312` |
+| 4 | README, focused setup/chat documentation and live API verifier | `963181c` |
+| 5 | Embedded chart-font policy and stronger hosted verification | `6ea1910` |
+| 6 | Distinguish user-name questions from assistant identity | `d9854cd` |
+| 7 | Keyboard-accessible generated tables and offline browser check | `ff4ae8c` |
+| 8 | Current architecture/status, release verification and recovery checkpoint | Commit titled `docs: finalize chat release and recovery verification` |
+
+Each batch is a separate terminal Git commit/push using Digvijay Singh Shekhawat as both author and committer, without co-author trailers. Configured-secret/recognizable-credential scans cover new history and candidate files. Explicit staging excludes private environment/state/data, installed/build dependencies, screenshots/downloads/output and local recovery helpers; the existing `.gitignore` is unchanged.
+
+Render runs backend release `d9854cd`; Cloudflare's frontend includes `ff4ae8c`. Documentation-only publication can advance Cloudflare's revision without changing the verified application. The final check compares local/remote main and trees, confirms owner attribution, clean status and successful Cloudflare publication. Fresh tests, actual-provider/browser results and remaining limits are in [verification](WEBAPP_VERIFICATION.md); recovery context and next-step guidance are in [PROGRESS.md](PROGRESS.md).
+
 ## Public repository rename and README publication — 2026-11-05
 
 The owner made the current application repository public and renamed it from DataBuddynew to [ShekhawaTTiku/DataBuddy](https://github.com/ShekhawaTTiku/DataBuddy). The original Streamlit repository became private DataBuddy1. Earlier private-repository references below describe their publication dates.

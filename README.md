@@ -69,6 +69,10 @@ React / TypeScript frontend
         ▼
 FastAPI session API
         │
+        ├── No dataset: model-backed conversation / app help
+        │                    │
+        │                    └── First upload keeps conversation
+        │
         ▼
 Load CSV or first-sheet XLSX into memory
         │

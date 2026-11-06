@@ -1,6 +1,6 @@
 # Selected stack and free-hosting target
 
-Current status as of 2026-11-05. The owner renamed the current repository to public [ShekhawaTTiku/DataBuddy](https://github.com/ShekhawaTTiku/DataBuddy). The frontend is deployed at `https://databuddy-demo.pages.dev`, the Render API accepts that origin, and browser sample loading passed. Linux container checks passed earlier. Hosted provider streaming and idle-wake acceptance remain pending. See [current deployment details](WEBAPP_SETUP.md#deployment). The dated sections below retain the earlier decisions and checks.
+Current status as of 2026-11-06. The public [ShekhawaTTiku/DataBuddy](https://github.com/ShekhawaTTiku/DataBuddy) release runs backend `d9854cd` on Render Free and frontend code including `ff4ae8c` on Cloudflare Pages. The public frontend is `https://databuddy-demo.pages.dev`. Hosted real-provider chat, calculations/charts, exports, Stop and progressive delivery/reload recovery passed. See [current deployment details](WEBAPP_SETUP.md#deployment), [verification](WEBAPP_VERIFICATION.md) and the [recovery checkpoint](PROGRESS.md). The dated selection and feasibility discussion below retains its original evidence and limits.
 
 Date: 2026-10-26 (Asia/Kolkata). The owner asked the assistant to choose the stack and recommend the best free hosting for the agreed portfolio scope. The selection was subsequently implemented at the owner’s request; deployment remains separately authorized. See [working setup](WEBAPP_SETUP.md) and [verification](WEBAPP_VERIFICATION.md).
 
@@ -18,7 +18,7 @@ Date: 2026-10-26 (Asia/Kolkata). The owner asked the assistant to choose the sta
 | Backend packaging | Docker image for deployment | A reproducible Linux runtime; Docker packaging is not a hardened execution sandbox. |
 | Checks | Existing offline pytest plus relevant frontend/build/API/browser checks | Retain provider-free regression testing and verify real UI outcomes. |
 
-Exact versions are now pinned in frontend/package-lock.json and requirements-api-lock.txt. The frontend builds and the API/core regression suite passes.
+Exact versions are pinned in `frontend/package-lock.json` and `requirements/api-lock.txt`. The frontend builds and the API/core regression suite passes.
 
 ## Hosting choice
 

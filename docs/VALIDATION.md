@@ -1,5 +1,9 @@
 # Validation record
 
+## Recovered chat release and fresh regression checks — 2026-11-06
+
+Recovered the interrupted model-backed chat release at `6ea1910`, preserving the completed implementation and published batches. The final suite after name-role and table-accessibility corrections passed **198 offline Python tests in 48.62 seconds**, ten frontend tests and the TypeScript/Vite production build. Python dependency consistency and a production npm audit passed with zero vulnerabilities. The existing Starlette/httpx deprecation warning remains. The retained 2026-11-05 hosted API report passed ten actual-provider submissions, with progressive answers observed in seven. The corrected hosted browser flow passed nine actual-provider submissions plus one active-reload request, with no duplicate charge/turn. Current health/CORS/CSP checks pass. Accessibility outcomes and limitations are recorded in [web app verification](WEBAPP_VERIFICATION.md); recovery details are in [PROGRESS.md](PROGRESS.md).
+
 ## README publication checks — 2026-11-05
 
 Fresh verification before publishing the updated public-repository and profile READMEs passed **183 offline Python tests in 45.07 seconds**, ten frontend tests and the TypeScript/Vite production build. The known upstream Starlette/httpx deprecation warning remains. Both READMEs passed GitHub Markdown rendering, local document-link checks and current-demo-link checks. The application README preserves the attached reference's section order. Candidate documents passed checks for configured provider-key values. These checks used no live provider inference.

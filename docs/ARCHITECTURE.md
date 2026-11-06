@@ -2,20 +2,22 @@
 
 ## Dedicated web application
 
-`frontend/` contains the React/TypeScript interface. `api/main.py` owns bounded in-memory sessions, streamed upload, idempotent background jobs, usage policy and explicit-origin bearer-token transport. `telemetry.py` observes safe metadata/stages. `response_stream.py` provides request-local text/evidence delivery and cancellation; `api/streaming.py` holds the bounded current-job snapshot. Authenticated fetch/SSE delivers incremental answers and early evidence; `/api/job` remains recovery status and `/api/session` supplies canonical completed turns/usage. Stream attachment never creates work. Native dialogs provide data/calculation/chart inspection; Plotly loads on demand. Deployment still uses one API worker because state is in-process. See [streaming](STREAMING.md).
+Updated 2026-11-06 after the repository organization and chat release. `frontend/` contains the React/TypeScript interface. `backend/api/main.py` owns bounded in-memory sessions, streamed upload, idempotent background jobs, usage policy and explicit-origin bearer-token transport. `backend/core/telemetry.py` observes safe metadata/stages. `backend/core/response_stream.py` provides request-local text/evidence delivery and cancellation; `backend/api/streaming.py` holds the bounded current-job snapshot. Authenticated fetch/SSE delivers incremental answers and early evidence; `/api/job` remains recovery status and `/api/session` supplies canonical completed turns/usage. Stream attachment never creates work. Native dialogs provide data/calculation/chart inspection; Plotly loads on demand. Deployment uses one API worker because state is in-process. There is no database or migration layer. See [streaming](STREAMING.md).
 
 ## Retained interfaces
 
-- web_app.py: the existing Streamlit upload/chat/chart interface and controls.
-- app.py: terminal loop, session commands and computed evidence display.
-- streamlit_support.py: allowlisted Streamlit Secrets bootstrap, called before importing core config.
-- ui_state.py: content fingerprints, transactional dataset replacement, bounded display history and clear/reset helpers. No Streamlit imports or saved uploads.
+- `web_app.py`: compatibility launcher for `backend/legacy/web_app.py`, the retained Streamlit interface.
+- `app.py`: compatibility launcher for `backend/cli.py`, which provides the terminal loop, session commands and computed evidence display.
+- `backend/legacy/streamlit_support.py`: allowlisted Streamlit Secrets bootstrap, called before importing core config.
+- `backend/legacy/ui_state.py`: content fingerprints, transactional dataset replacement, bounded display history and clear/reset helpers. No Streamlit imports or saved uploads.
 
 ## Reusable core
 
+The following modules live in `backend/core/`; prompt templates live in `backend/core/prompts/`. Dependencies are grouped in `requirements/`, and production Docker copies only the API/core and their locked runtime dependencies.
+
 - config.py: validated environment-backed settings; explicitly loads the project-local .env; no UI imports.
 - dataset_profiler.py / dataset_state.py: bounded memory loading from paths, bytes and binary streams; CSV/XLSX parsing, conservative types/dates, clipped profile and import notices.
-- databuddy.py: session coordinator. DataBuddy(source, filename=None).ask(question) returns AskResult with answer, optional chart/description/suggestion, result_text, code and status (success, partial, error, clarification, stopped). Delivery callbacks expose evidence before narration and the answer before memory; the central recording path remains once per exchange.
+- databuddy.py: session coordinator. DataBuddy(dataset_source=None, filename=None).ask(question) returns AskResult with answer, optional chart/description/suggestion, result_text, code and status (success, partial, error, clarification, stopped). No-data sessions call the conversational model directly without generating code. Delivery callbacks expose evidence before narration and the answer before memory; the central recording path remains once per exchange.
 - conversation_state.py: bounded in-memory recent turns, six brief notes, one rolling paragraph, last successful analysis and five recent charts. Optional Gemini/Mistral summarization; no file save/load. Summaries are excluded from code-generation analysis context, which retains actual recent analysis and saved computed evidence.
 - message_handler.py: local clock handling, model routing with local fallback, conversation and prior-analysis explanation.
 - analyst.py and prompts/: bounded prompt assembly, code generation and evidence-based narration. Optional suggestions default off.
@@ -26,8 +28,8 @@
 
 ## Request flow
 
-1. Upload is checked and parsed in memory. The active dataset switches only after success.
-2. A question uses the current session context. Clock/remember answers are local; completed exchanges still receive optional memory updates.
+1. Conversation can start before an upload, using the existing Mistral model with current app facts, dataset availability, configured clock and bounded context. Every admitted message counts toward the allowance and memory cycle.
+2. Upload is checked and parsed in memory. The active dataset switches only after success. First upload preserves introductory conversation; later replacement clears it. With a dataset loaded, existing local clock/remember handling remains available.
 3. Router selects analysis, chart, chart modification, conversation or explanation; malformed/unavailable routing falls back to local rules.
 4. Generated code is validated and executed in a fresh bounded worker, using a copy of the session DataFrame.
 5. Successful evidence is preserved. Narration failure produces partial success; failed execution does not produce a fabricated narrative.

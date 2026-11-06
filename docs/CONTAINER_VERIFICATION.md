@@ -1,5 +1,7 @@
 # Local Linux container verification
 
+Current release update: the reorganized production image built on 2026-11-05 and passed health/session/sample checks at 512 MiB/no swap/0.1 CPU, a real calculation worker and non-root/private-file checks. Hosted real-provider acceptance followed; see [current verification](WEBAPP_VERIFICATION.md). The detailed October 30 measurements below remain historical. The new full 198-test suite was exercised on Windows; it is not presented as a fresh 198-test Linux run.
+
 Date: 2026-10-30 (Asia/Kolkata). The owner authorized Docker installation and local container/resource testing after enabling WSL and restarting Windows. The hosting target remains Cloudflare Pages + Render Free. No hosting account, deployment, commit or push is part of this work.
 
 ## Environment and image
@@ -46,7 +48,7 @@ docker run --rm --memory 512m --memory-swap 512m --cpus 0.1 -p 127.0.0.1:18008:8
 
 The last command exposes the API locally at `http://127.0.0.1:18008`; `/api/health` should return `{"status":"ok"}`. It deliberately supplies no provider credentials. Stop it before reusing the port.
 
-For resource diagnostics, create a disposable image derived from `databuddy:local` that installs `psutil==7.2.2`, constrained by `/app/requirements-api-lock.txt`, then returns to `USER appuser`. Mount only this checkout's `scripts` directory read-only at `/app/scripts` and run `python /app/scripts/resource_check.py --case near-limit` with `--network none --memory 512m --memory-swap 512m --cpus 0.1 -e EXEC_TIMEOUT_SECONDS=30`. Repeat with `sample`, `wide` and `xlsx`. The ordinary probe prints size, timing, summed RSS and execution status; it exits normally even if `execution_ok` is false, so inspect that field rather than relying only on the process exit code.
+For resource diagnostics, create a disposable image derived from `databuddy:local` that installs `psutil==7.2.2`, constrained by `/app/requirements/api-lock.txt`, then returns to `USER appuser`. Mount only this checkout's `scripts` directory read-only at `/app/scripts` and run `python /app/scripts/resource_check.py --case near-limit` with `--network none --memory 512m --memory-swap 512m --cpus 0.1 -e EXEC_TIMEOUT_SECONDS=30`. Repeat with `sample`, `wide` and `xlsx`. The ordinary probe prints size, timing, summed RSS and execution status; it exits normally even if `execution_ok` is false, so inspect that field rather than relying only on the process exit code.
 
 The local aggregate JSON/build/test records and explicit disposable-context helpers are under ignored `output/docker-validation-2026-10-30/`; they are not part of the versioned application. All test containers were removed. Production and diagnostic images remain local for repeat checks.
 

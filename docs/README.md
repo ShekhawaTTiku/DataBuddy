@@ -4,6 +4,7 @@ This directory is the source of truth for the current trusted-demo application. 
 
 | Document | Purpose |
 | --- | --- |
+| [Recovery and release checkpoint](PROGRESS.md) | Last verified revision, recovered evidence, current completion status and next steps |
 | [Working web app setup and deployment](WEBAPP_SETUP.md) | Final stack, local run, session/usage policy and deployment configuration |
 | [Chat and dataset lifecycle](CHAT_BEHAVIOR.md) | Model-backed chat before upload, memory transitions, allowance and acceptance checks |
 | [Streaming and response recovery](STREAMING.md) | Incremental answers, early results, reconnect, Stop, fallback and once-per-exchange memory/accounting |
@@ -23,7 +24,7 @@ This directory is the source of truth for the current trusted-demo application. 
 | [Security and privacy](SECURITY_AND_PRIVACY.md) | Simple safeguards, provider disclosure and honest limits |
 | [Demo checklist](DEMO_CHECKLIST.md) | A repeatable showcase using a synthetic CSV |
 | [Validation](VALIDATION.md) | Actual checks, outcomes and unverified areas |
-| [GitHub checkpoint](GITHUB_CHECKPOINT.md) | Private destination, grouped publication, file exclusions and recovery reference |
+| [GitHub checkpoint](GITHUB_CHECKPOINT.md) | Current public destination, grouped publication, file exclusions and recovery reference |
 | [Live Superstore verification](LIVE_VERIFICATION.md) | Owner-authorized real-provider/browser acceptance, fixes, evidence and limits |
 | [Antigravity review handoff](ANTIGRAVITY_REVIEW_HANDOFF.md) | Complete independent-review checklist, prior changes, future stages and second-opinion request |
 | [Antigravity review](ANTIGRAVITY_REVIEW.md) | Independent second-opinion review report and evaluation of phases A–J |
