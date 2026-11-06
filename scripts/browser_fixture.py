@@ -75,6 +75,8 @@ def incremental(text):
 
 def answer(profile, question, code, execution, **kwargs):
     usage()
+    if 'wide markdown' in question.lower():
+        return incremental('## Synthetic wide table\n\n| Metric | Value | Units | Description | Region |\n| --- | --- | --- | --- | --- |\n| Sales | 1000 | USD | Offline keyboard-scroll verification | North |')
     if 'fallback' in question.lower():
         response_stream.text('An unfinished primary explanation')
         time.sleep(.8)

@@ -1,5 +1,5 @@
-import { memo } from "react";
-import { Streamdown, defaultRehypePlugins } from "streamdown";
+import { memo, type ComponentProps } from "react";
+import { Streamdown, defaultComponents, defaultRehypePlugins } from "streamdown";
 import { math } from "@streamdown/math";
 import { createMermaidPlugin } from "@streamdown/mermaid";
 import "streamdown/styles.css";
@@ -17,7 +17,13 @@ const rehypePlugins = [
   defaultRehypePlugins.sanitize,
   defaultRehypePlugins.harden,
 ];
-const components = { img: () => null };
+const DefaultTable = defaultComponents.table;
+const components = {
+  img: () => null,
+  table: (props: ComponentProps<typeof DefaultTable>) => (
+    <DefaultTable {...props} tabIndex={0} aria-label="Response table" />
+  ),
+};
 const diagramOptions = {
   light: { config: { theme: "default", securityLevel: "strict" } },
   dark: { config: { theme: "dark", securityLevel: "strict" } },
