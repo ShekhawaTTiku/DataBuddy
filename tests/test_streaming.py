@@ -138,17 +138,17 @@ def test_private_stream_error_is_sanitized_and_content_is_bounded():
         assert len(state.answer) == config.MAX_MESSAGE_CHARS
 
 
-def test_streaming_router_classifies_only_but_legacy_keeps_single_call_reply(monkeypatch):
-    prompts = []
-    def classify(prompt):
-        prompts.append(prompt)
-        return '{"route":"conversation","reply":"buffered answer"}'
+def test_router_classifies_only_and_ordinary_chat_generates_one_reply(monkeypatch):
+    seen = []
+    def classify(input_text, *, instructions, criteria):
+        seen.append((input_text, criteria))
+        return {"choice": "conversation", "confidence": 0.95}
     monkeypatch.setattr(message_handler, "classify_message", classify)
     args = dict(question="Hello", columns=["Sales"], conversation="", has_analysis_context=False)
-    assert message_handler.route_message(**args)["reply"] == "buffered answer"
+    assert message_handler.route_message(**args) == {"route": "conversation", "reply": ""}
     with delivery.observe(lambda *_: None, threading.Event()):
-        assert message_handler.route_message(**args)["reply"] == ""
-    assert "Classify only" in prompts[-1]
+        assert message_handler.route_message(**args) == {"route": "conversation", "reply": ""}
+    assert len(seen) == 2
 
 
 @pytest.mark.parametrize("cancel_at", ["text", "evidence"])

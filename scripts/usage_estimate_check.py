@@ -21,12 +21,13 @@ def main():
     config.ENABLE_VISUALIZATION_SUGGESTIONS = False
     calls = []
     def fake(role, answer, cap):
-        def respond(prompt):
+        def respond(prompt, **kwargs):
+            out_chars = len(json.dumps(answer)) if isinstance(answer, dict) else len(answer)
             calls.append({'role': role, 'estimated_input': math.ceil(len(prompt)/4),
-                          'estimated_output': math.ceil(len(answer)/4), 'output_cap': cap})
+                          'estimated_output': math.ceil(out_chars/4), 'output_cap': cap})
             return answer
         return respond
-    message_handler.classify_message = fake('routing', '{"route":"analysis"}', config.MAX_RESPONSE_TOKENS)
+    message_handler.classify_message = fake('routing', {'choice': 'analysis', 'confidence': 0.99}, 0)
     analyst.call_analysis_llm = fake('code', "result = df['Sales'].sum()", config.MAX_RESPONSE_TOKENS)
     analyst.call_narration_llm = fake('narration', 'Total sales are 1000.', config.MAX_RESPONSE_TOKENS)
     conversation_state.call_memory_llm = fake('memory', 'Discussed total sales.', config.MAX_MEMORY_RESPONSE_TOKENS)

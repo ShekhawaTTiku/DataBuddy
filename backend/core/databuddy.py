@@ -172,6 +172,11 @@ class DataBuddy:
                 )
         elif route == "conversation":
             answer = _nonempty(route_result.get("reply") or message_handler.answer_conversation(question, context))
+        elif route == "clarification":
+            return AskResult(
+                answer=_nonempty(route_result.get("reply") or "Could you clarify what you'd like to do with your dataset?"),
+                status="clarification",
+            )
         elif route in {"visualization", "modify_chart"}:
             if route == "modify_chart" and not self.conversation.has_chart_context:
                 return AskResult(answer="Create a chart first, then ask me to change it.", status="clarification")

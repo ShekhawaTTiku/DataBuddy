@@ -5,6 +5,7 @@ python-dotenv==1.2.3
 groq==1.7.0
 mistralai==2.10.1
 google-genai==2.25.0
+httpx==0.28.1
 tzdata==2026.4
 streamlit==1.65.0
 plotly==7.1.0

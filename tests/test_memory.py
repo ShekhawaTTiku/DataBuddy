@@ -149,10 +149,10 @@ def test_six_exchange_pipeline_includes_evidence_and_clears_notes(monkeypatch):
     assert buddy.conversation.memory_notes == [] and len(buddy.conversation.recent_turns) == 6
 
 
-def test_permanent_routing_errors_are_visible(monkeypatch):
+def test_routing_provider_error_falls_back_to_local_rules(monkeypatch):
     monkeypatch.setattr(databuddy.message_handler, "classify_message", MagicMock(side_effect=ProviderError("Check model access.")))
-    with pytest.raises(ProviderError, match="model access"):
-        databuddy.message_handler.route_message("hello", ["sales"], "", False)
+    assert databuddy.message_handler.route_message("total sales", ["sales"], "", False)["route"] == "analysis"
+    assert databuddy.message_handler.route_message("hello", ["sales"], "", False)["route"] == "conversation"
 
 
 def test_sixth_note_and_compression_share_one_request_and_deadline(monkeypatch):

@@ -3,11 +3,15 @@ from contextlib import contextmanager
 from contextvars import ContextVar
 import random
 import time
+from types import SimpleNamespace
+
+import httpx
 
 from backend.core import config
 from backend.core import telemetry
 from backend.core import response_stream
 _deadline = ContextVar("databuddy_provider_deadline", default=None)
+_DECISIONS_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/decisions"
 
 
 class ProviderError(RuntimeError):
@@ -34,11 +38,14 @@ def request_budget(seconds: float | None = None):
 
 
 def _status(exc: Exception):
-    # Google Gen AI uses .code; Groq/Mistral use .status_code.
-    return getattr(exc, "status_code", None) or getattr(exc, "code", None)
+    # Google Gen AI uses .code; Groq/Mistral use .status_code; httpx uses .response.status_code.
+    response = getattr(exc, "response", None)
+    return getattr(exc, "status_code", None) or getattr(exc, "code", None) or getattr(response, "status_code", None)
 
 
 def _is_transient(exc: Exception) -> bool:
+    if isinstance(exc, httpx.TransportError):
+        return True
     status = _status(exc)
     if status in (408, 429) or (isinstance(status, int) and 500 <= status <= 599):
         return True
@@ -200,8 +207,52 @@ def call_explanation_llm(prompt: str) -> str:
     return _mistral_completion(prompt, config.EXPLANATION_MODEL)
 
 
-def classify_message(prompt: str) -> str:
-    return _mistral_completion(prompt, config.CONVERSATION_MODEL, json_mode=True)
+def classify_message(input_text: str, *, instructions: str, criteria: dict[str, str]) -> dict:
+    """Classify a message using Google's Decisions API with gemini-decision-1."""
+    _validate_prompt(input_text)
+    if not config.GEMINI_API_KEY:
+        raise ProviderUnavailableError("GEMINI_API_KEY is missing.")
+    if not config.ROUTER_MODEL.strip():
+        raise ProviderError("ROUTER_MODEL is empty. Set a Gemini decision model available to your account.")
+
+    def request(timeout):
+        payload = {
+            "model": config.ROUTER_MODEL,
+            "input": input_text,
+            "questions": {
+                "route": {
+                    "type": "choice",
+                    "instructions": instructions,
+                    "criteria": criteria,
+                }
+            },
+        }
+        headers = {
+            "x-goog-api-key": config.GEMINI_API_KEY,
+            "Content-Type": "application/json",
+        }
+        with httpx.Client(timeout=timeout) as client, response_stream.connection(client):
+            response = client.post(_DECISIONS_ENDPOINT, headers=headers, json=payload)
+            response.raise_for_status()
+            data = response.json()
+        usage = data.get("usage") if isinstance(data, dict) else None
+        usage_meta = (
+            {
+                "prompt_token_count": usage.get("total_input_tokens"),
+                "candidates_token_count": usage.get("total_output_tokens"),
+                "total_token_count": usage.get("total_tokens"),
+            }
+            if isinstance(usage, dict)
+            else None
+        )
+        telemetry.record_usage(SimpleNamespace(usage_metadata=usage_meta), "Gemini", config.ROUTER_MODEL)
+        answers = data.get("answers") if isinstance(data, dict) else None
+        route_answer = answers.get("route") if isinstance(answers, dict) else None
+        if not isinstance(route_answer, dict) or not isinstance(route_answer.get("choice"), str):
+            raise ProviderUnavailableError("Gemini Decisions API returned a malformed routing response.")
+        return route_answer
+
+    return _retry(request, "Gemini")
 
 
 def _groq_completion(prompt: str, temperature: float = 0.2, stream: bool = False) -> str:
