@@ -7,7 +7,12 @@ from zoneinfo import ZoneInfo
 
 from backend.core import config
 from backend.core import response_stream
-from backend.core.llm_clients import call_conversation_llm, call_explanation_llm, classify_message
+from backend.core.llm_clients import (
+    call_conversation_llm,
+    call_explanation_llm,
+    call_saved_explanation_llm,
+    classify_message,
+)
 
 _PROMPTS_DIR = Path(__file__).parent / "prompts"
 _VALID_ROUTES = {"analysis", "conversation", "explain_analysis", "clock", "visualization", "modify_chart"}
@@ -40,7 +45,7 @@ _TIME_QUERY = re.compile(
     r"\b(what(?:'s| is) the time|what time is it|current time|time right now|"
     r"what(?:'s| is) today's date|what date is it|current date|today's date)\b", re.I)
 _EXPLANATION_QUERY = re.compile(
-    r"\b(how did you know|how do you know|how was that calculated|how did you calculate|show your calculation|"
+    r"\b(how did you (?:know|calculate|get)|how do you (?:know|calculate|get)|how was that calculated|show your calculation|"
     r"why did you (?:say|answer|conclude)|why (?:is|was) (?:that|the answer|the result)|"
     r"explain (?:that|your answer|the result))\b", re.I)
 _CONVERSATION_EXPLANATION_QUERY = re.compile(
@@ -197,12 +202,24 @@ def answer_explanation(question: str, last_analysis: dict | None) -> str:
     if not last_analysis:
         return "I don’t have a previous successful analysis to explain yet. Ask a data question first."
     template = (_PROMPTS_DIR / "analysis_explanation.txt").read_text(encoding="utf-8")
-    prompt = _fill(template, question=question,
-                   analysis_question=str(last_analysis.get("question", ""))[:2000],
-                   code=str(last_analysis.get("code", ""))[:8000],
-                   result=str(last_analysis.get("result", ""))[:config.MAX_RESULT_CHARS],
-                   answer=str(last_analysis.get("answer", ""))[:2000])
-    return call_explanation_llm(prompt)
+    remaining = max(0, config.MAX_PROMPT_CHARS - len(template))
+    raw_fields = (
+        ("question", str(question), config.MAX_QUESTION_CHARS),
+        ("result", str(last_analysis.get("result", "")), config.MAX_RESULT_CHARS),
+        ("code", str(last_analysis.get("code", "")), 8000),
+        ("analysis_question", str(last_analysis.get("question", "")), 2000),
+        ("answer", str(last_analysis.get("answer", "")), 2000),
+    )
+    bounded = {}
+    for key, text, cap in raw_fields:
+        allowed = min(cap, remaining)
+        if len(text) <= allowed:
+            bounded[key] = text
+        else:
+            bounded[key] = text[:max(0, allowed - 15)] + "... [truncated]"[:allowed]
+        remaining -= len(bounded[key])
+    prompt = _fill(template, **bounded)
+    return call_saved_explanation_llm(prompt)
 
 
 def answer_clock() -> str:

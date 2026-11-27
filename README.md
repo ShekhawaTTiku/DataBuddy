@@ -232,12 +232,13 @@ In `frontend`, run `npm test` and `npm run build`. Regression tests use fake pro
 |---|---|---|
 | `GROQ_API_KEY` | User supplied | Authenticate analysis-code generation and result narration. |
 | `ANALYSIS_MODEL` | `openai/gpt-oss-120b` | Groq-hosted analysis and narration model. |
-| `GEMINI_API_KEY` | User supplied | Authenticate request routing, ordinary chat and conversation memory. |
+| `GEMINI_API_KEY` | User supplied | Authenticate request routing, ordinary chat, saved-result explanations and conversation memory. |
 | `ROUTER_MODEL` | `gemini-decision-1` | Classify dataset-loaded requests via Google's Decisions API. |
 | `CHAT_MODEL` | `gemini-3.1-flash-lite` | Answer ordinary conversation before and after dataset upload. |
+| `GEMINI_EXPLANATION_MODEL` | `gemini-4-hydrogen` | Explain the last successful saved calculation or chart. |
 | `MEMORY_MODEL` | `gemini-3.5-flash-lite` | Primary memory-summary model. |
-| `MISTRAL_API_KEY` | User supplied | Authenticate previous-analysis explanation and legacy fallbacks. |
-| `MISTRAL_EXPLANATION_MODEL` | `ministral-14b-latest` | Explain the last successful analysis. |
+| `MISTRAL_API_KEY` | User supplied | Authenticate legacy fallbacks for Groq analysis/narration and Gemini memory. |
+| `MISTRAL_EXPLANATION_MODEL` | `ministral-14b-latest` | Fallback for Groq result/chart narration. |
 | `MISTRAL_FALLBACK_MODEL` | `ministral-14b-latest` | Fallback for Groq analysis/narration and Gemini memory. |
 | `DATABUDDY_TIMEZONE` | `Asia/Kolkata` | Time zone for local-time answers. |
 | `EXEC_TIMEOUT_SECONDS` | `5` | Calculation deadline, configurable from 1 to 30 seconds. The deployment uses 30. |
@@ -312,8 +313,8 @@ Generated calculations run with basic code checks, a child-process timeout and o
 | **pandas / NumPy / openpyxl** | Dataset loading, profiling and calculations |
 | **Plotly / react-plotly.js** | Interactive charts and chart exports |
 | **Groq** | Analysis-code generation and result narration |
-| **Gemini** | Request routing (`gemini-decision-1`), ordinary chat (`gemini-3.1-flash-lite`) and primary conversation memory (`gemini-3.5-flash-lite`) |
-| **Mistral** | Explanations of previous analysis and fallback for code, narration and memory |
+| **Gemini** | Request routing (`gemini-decision-1`), ordinary chat (`gemini-3.1-flash-lite`), saved-result explanations (`gemini-4-hydrogen`) and primary conversation memory (`gemini-3.5-flash-lite`) |
+| **Mistral** | Legacy fallback for code, narration and memory |
 | **Docker / Render** | Packaged Python backend and free API hosting |
 | **Cloudflare Pages** | Free static frontend hosting |
 | **pytest / Node test runner** | Offline backend and frontend regression checks |

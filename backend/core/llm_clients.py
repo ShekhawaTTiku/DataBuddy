@@ -213,6 +213,18 @@ def call_explanation_llm(prompt: str) -> str:
     return _mistral_completion(prompt, config.EXPLANATION_MODEL)
 
 
+def call_saved_explanation_llm(prompt: str) -> str:
+    return _gemini_generate(
+        prompt,
+        model=config.GEMINI_EXPLANATION_MODEL,
+        max_tokens=config.MAX_RESPONSE_TOKENS,
+        stream=bool(response_stream.current() and not response_stream.current().finalizing),
+        empty_error="Gemini returned no explanation. You can still inspect the previous computed result.",
+        model_setting="GEMINI_EXPLANATION_MODEL",
+        missing_key_error="GEMINI_API_KEY is missing. Configure it to explain saved results.",
+    )
+
+
 def classify_message(input_text: str, *, instructions: str, criteria: dict[str, str]) -> dict:
     """Classify a message using Google's Decisions API with gemini-decision-1."""
     _validate_prompt(input_text)
@@ -383,6 +395,14 @@ def _consume_gemini_stream(chunks, client, provider: str, model: str) -> str:
     return text.strip()
 
 
+def _thinking_config(model: str, types):
+    if model.startswith(("gemini-3.5-flash-lite", "gemini-3.1-flash-lite")):
+        return types.ThinkingConfig(thinking_level="minimal")
+    if model.startswith("gemini-4-hydrogen"):
+        return types.ThinkingConfig(thinking_level="low")
+    return None
+
+
 def _gemini_generate(prompt: str, *, model: str, max_tokens: int, stream: bool = False,
                      empty_error: str, model_setting: str, missing_key_error: str) -> str:
     _validate_prompt(prompt)
@@ -403,8 +423,7 @@ def _gemini_generate(prompt: str, *, model: str, max_tokens: int, stream: bool =
         gen_config = types.GenerateContentConfig(
             max_output_tokens=max_tokens,
             automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True),
-            thinking_config=(types.ThinkingConfig(thinking_level="minimal")
-                             if model.startswith(("gemini-3.5-flash-lite", "gemini-3.1-flash-lite")) else None),
+            thinking_config=_thinking_config(model, types),
         )
         with genai.Client(api_key=config.GEMINI_API_KEY, vertexai=False, http_options=options) as client, response_stream.connection(client):
             if stream:

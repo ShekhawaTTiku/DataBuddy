@@ -157,6 +157,8 @@ class DataBuddy:
         if route == "clock":
             answer = message_handler.answer_clock()
         elif route == "explain_analysis":
+            if self.conversation.last_analysis:
+                telemetry.stage("Writing answer")
             try:
                 answer = _nonempty(message_handler.answer_explanation(question, self.conversation.last_analysis))
             except response_stream.ResponseCancelled:
@@ -164,9 +166,14 @@ class DataBuddy:
             except Exception as error:
                 if not self.conversation.last_analysis:
                     raise
+                fallback_answer = (
+                    "The written explanation is unavailable. You can still inspect the previous computed result."
+                    + (" " + str(error) if isinstance(error, ProviderError) else "")
+                )
+                if response_stream.current() and response_stream.current().answer:
+                    fallback_answer = response_stream.current().answer + "\n\n" + fallback_answer
                 return AskResult(
-                    answer="The written explanation is unavailable. You can still inspect the previous computed result."
-                           + (" " + str(error) if isinstance(error, ProviderError) else ""),
+                    answer=fallback_answer,
                     result_text=self.conversation.last_analysis["result"],
                     code=self.conversation.last_analysis["code"], status="partial",
                 )

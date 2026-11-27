@@ -21,6 +21,7 @@ def no_provider_calls(monkeypatch):
     monkeypatch.setattr(message_handler, "classify_message", fail)
     monkeypatch.setattr(message_handler, "call_conversation_llm", fail)
     monkeypatch.setattr(message_handler, "call_explanation_llm", fail)
+    monkeypatch.setattr(message_handler, "call_saved_explanation_llm", fail, raising=False)
 
 
 @pytest.fixture
