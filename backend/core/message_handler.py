@@ -45,7 +45,9 @@ _TIME_QUERY = re.compile(
     r"\b(what(?:'s| is) the time|what time is it|current time|time right now|"
     r"what(?:'s| is) today's date|what date is it|current date|today's date)\b", re.I)
 _EXPLANATION_QUERY = re.compile(
-    r"\b(how did you (?:know|calculate|get)|how do you (?:know|calculate|get)|how was that calculated|show your calculation|"
+    r"\b(how did you (?:know|calculate)|how do you (?:know|calculate)|"
+    r"how (?:did|do) you get (?!started\b)(?:(?:\$|£|€)?-?\d|(?:that|this|those|it|your|the)\b)|"
+    r"how was that calculated|show your calculation|"
     r"why did you (?:say|answer|conclude)|why (?:is|was) (?:that|the answer|the result)|"
     r"explain (?:that|your answer|the result))\b", re.I)
 _CONVERSATION_EXPLANATION_QUERY = re.compile(
@@ -60,6 +62,7 @@ _CONCEPT_QUERY = re.compile(
     r")", re.I)
 _APP_HELP_QUERY = re.compile(
     r"\b(can you help me (?:upload|use|export|download|remove|reset)|"
+    r"how (?:do|did) (?:i|you) get started|"
     r"upload (?:my |a )?(?:data|dataset|file|csv|xlsx)|"
     r"is (?:my )?(?:data|dataset|chat) saved|"
     r"what can you do)\b", re.I)

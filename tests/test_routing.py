@@ -198,6 +198,38 @@ def test_local_routing_avoids_substrings_and_generic_data_and_handles_mixed_char
     assert message_handler.route_message("Make it horizontal", ["Sales", "Region"], "", True, True)["route"] == "modify_chart"
 
 
+@pytest.mark.parametrize("question", [
+    "How do you get started with DataBuddy?",
+    "How did you get started with data analysis?",
+])
+def test_get_started_questions_do_not_trigger_explain_shortcut_with_saved_analysis(monkeypatch, question):
+    seen = []
+
+    def fake_classify(input_text, *, instructions, criteria):
+        seen.append(input_text)
+        return {"choice": "conversation", "confidence": 0.94}
+
+    monkeypatch.setattr(message_handler, "classify_message", fake_classify)
+    result = message_handler.route_message(question, ["Sales", "Region"], "", True)
+    assert result["route"] == "conversation"
+    assert len(seen) == 1
+
+    monkeypatch.setattr(
+        message_handler,
+        "classify_message",
+        MagicMock(side_effect=llm_clients.ProviderUnavailableError("Decision 1 unavailable")),
+    )
+    assert message_handler.route_message(question, ["Sales", "Region"], "", True)["route"] == "conversation"
+
+    monkeypatch.setattr(
+        message_handler,
+        "classify_message",
+        lambda *a, **kw: {"choice": "unclear", "confidence": 0.9},
+    )
+    assert message_handler.route_message(question, ["Sales", "Region"], "", True)["route"] == "conversation"
+    assert message_handler.route_message("How did you get 1,000?", ["Sales", "Region"], "", True)["route"] == "explain_analysis"
+
+
 @pytest.mark.parametrize("failure", [
     lambda *a, **kw: (_ for _ in ()).throw(llm_clients.ProviderError("Gemini could not authenticate")),
     lambda *a, **kw: (_ for _ in ()).throw(llm_clients.ProviderUnavailableError("Gemini quota reached")),
