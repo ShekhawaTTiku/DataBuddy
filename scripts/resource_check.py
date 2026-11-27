@@ -36,7 +36,6 @@ def main():
     # Include providers/API loaded in a warm process, without making requests.
     import groq
     import google.genai
-    import mistralai.client
     import backend.api.main
     executor.EXEC_TIMEOUT_SECONDS = 30
     if args.case == 'sample':

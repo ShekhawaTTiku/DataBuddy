@@ -13,7 +13,7 @@ Date: 2026-10-26 (Asia/Kolkata). The owner asked the assistant to choose the sta
 | Browser charts | Plotly.js through react-plotly.js | Reuse validated Plotly figure data from the Python core. Load charts on demand. |
 | API | FastAPI on Python, served with Uvicorn | Wrap the existing UI-independent core rather than rewrite analysis behavior. |
 | Analysis | Existing pandas, NumPy, openpyxl and Plotly Python | Preserve loader, calculation, evidence and chart behavior. |
-| Providers | Existing Groq, Gemini and Mistral roles | Preserve verified primary/fallback and six-exchange memory behavior. |
+| Providers | Groq primary analysis/narration; Gemini routing, chat, explanation, fallback and memory | Preserve verified Groq-to-Gemini Hydrogen fallback, local routing/memory fallbacks and six-exchange memory behavior. |
 | State | Bounded server-side session memory, frontend UI state | No database, accounts or saved conversation history. |
 | Backend packaging | Docker image for deployment | A reproducible Linux runtime; Docker packaging is not a hardened execution sandbox. |
 | Checks | Existing offline pytest plus relevant frontend/build/API/browser checks | Retain provider-free regression testing and verify real UI outcomes. |

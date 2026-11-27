@@ -4,25 +4,24 @@ For the dedicated React/FastAPI app, use [working web app setup](WEBAPP_SETUP.md
 
 ## Verified local environment
 
-Windows and Python 3.11.9. Ten direct runtime dependencies are pinned in requirements/legacy.txt; requirements-lock-windows.txt records 63 installed runtime packages, including Google Gen AI for memory. It is an installed-environment snapshot, not a clean-install or cross-platform guarantee. Verify dependency resolution and tests on any different Python/OS before deployment.
+Windows and Python 3.11.9. Direct legacy runtime dependencies are pinned in `requirements/legacy.txt`; `requirements/api-lock.txt` records the tested API closure. Verify dependency resolution and tests on any different Python/OS before deployment.
 
 ```powershell
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
-python -m pip install -r requirements-lock-windows.txt
+python -m pip install -r requirements/legacy.txt
 python -m pip install -r requirements/dev.txt
 if (-not (Test-Path -LiteralPath .env)) { Copy-Item -LiteralPath .env.example -Destination .env }
 ```
 
-Edit .env privately and replace placeholders. For another OS, use requirements/legacy.txt and verify the resolved environment. No installation or package upgrade was performed during this work; existing installed packages were exercised.
+Edit .env privately and replace placeholders. No live model calls are run during offline checks.
 
 ## Provider settings
 
 - GROQ_API_KEY: primary analysis/code generation and answer writing.
-- MISTRAL_API_KEY: routing, ordinary chat, explanation, and fallback for code, narration and memory.
-- GEMINI_API_KEY: primary brief-note and rolling-summary engine. Without this key, configured Mistral handles memory directly. Without either memory provider, limited recent context is kept with a visible notice.
-- Either key enables data questions: without Mistral the local heuristic router is used; without Groq the configured Mistral fallback handles analysis. Ordinary chat/explanation generation needs Mistral; prior evidence remains inspectable if explanation fails.
-- ANALYSIS_MODEL, MEMORY_MODEL, MISTRAL_CHAT_MODEL, MISTRAL_EXPLANATION_MODEL, MISTRAL_FALLBACK_MODEL select provider models. Role-appropriate defaults and official references are listed in [PROVIDERS_AND_MEMORY.md](PROVIDERS_AND_MEMORY.md); account access is not guaranteed. An unavailable model produces a configuration message rather than silent failover. Existing private .env files were not edited.
+- GEMINI_API_KEY: request routing (`ROUTER_MODEL`, default `gemini-decision-1`), ordinary conversation (`CHAT_MODEL`, default `gemini-3.1-flash-lite`), saved-result explanations (`GEMINI_EXPLANATION_MODEL`, default `gemini-4-hydrogen`), Groq code/narration fallback (`GEMINI_FALLBACK_MODEL`, default `gemini-4-hydrogen`), and brief-note and rolling-summary engine (`MEMORY_MODEL`, default `gemini-3.5-flash-lite`). Without this key, local routing rules handle clear dataset requests and `ConversationState` keeps clipped local memory notes.
+- Either key enables chat/data questions: without Gemini routing falls back to the local heuristic router; without Groq `GEMINI_FALLBACK_MODEL` handles analysis/narration when `GEMINI_API_KEY` is configured. Ordinary chat and saved-result explanations use `GEMINI_API_KEY`; prior evidence remains inspectable if explanation fails.
+- ANALYSIS_MODEL, MEMORY_MODEL, ROUTER_MODEL, CHAT_MODEL, GEMINI_EXPLANATION_MODEL, and GEMINI_FALLBACK_MODEL select provider models. Role-appropriate defaults and official references are listed in [PROVIDERS_AND_MEMORY.md](PROVIDERS_AND_MEMORY.md); account access is not guaranteed. An unavailable model produces a configuration message rather than silent failover for chat/explanation/analysis (while routing falls back to local rules and memory falls back to local notes). Existing private .env files were not edited.
 - Streamlit Cloud Secrets, if later used, are loaded only by streamlit_support.py. Core config never imports Streamlit. Only known scalar provider/model/time-zone settings are exported; unrelated secrets stay private.
 
 ## Useful optional settings
@@ -36,7 +35,7 @@ Edit .env privately and replace placeholders. For another OS, use requirements/l
 | PROVIDER_MAX_RETRIES | 1 | 0–2 retries; SDK retry layers disabled |
 | MAX_RESPONSE_TOKENS | 2048 | 256–4096 per model response |
 | MAX_RECENT_TURNS | 6 | 1–12 recent question/answer pairs |
-| MEMORY_TIMEOUT_SECONDS | 20 | 1–20 seconds for the optional memory update, within the question's overall deadline; below Gemini's 10-second minimum, Mistral is used if configured |
+| MEMORY_TIMEOUT_SECONDS | 20 | 1–20 seconds for the optional memory update, within the question's overall deadline; below Gemini's 10-second minimum, local uncompressed notes are used |
 | SAMPLE_ROWS | 3 | 0–5 sample rows; setting zero does not remove statistics/category values |
 | MAX_RESULT_ROWS | 20 | 1–100 displayed result rows |
 | MAX_RESULT_CHARS | 4000 | 200–12000 result characters |

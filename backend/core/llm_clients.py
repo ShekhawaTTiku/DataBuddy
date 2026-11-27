@@ -3,11 +3,16 @@ from contextlib import contextmanager
 from contextvars import ContextVar
 import random
 import time
+from types import SimpleNamespace
+
+import httpx
 
 from backend.core import config
 from backend.core import telemetry
 from backend.core import response_stream
 _deadline = ContextVar("databuddy_provider_deadline", default=None)
+_DECISIONS_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/decisions"
+_GEMINI_RESERVED_SECONDS = 10.1
 
 
 class ProviderError(RuntimeError):
@@ -34,11 +39,14 @@ def request_budget(seconds: float | None = None):
 
 
 def _status(exc: Exception):
-    # Google Gen AI uses .code; Groq/Mistral use .status_code.
-    return getattr(exc, "status_code", None) or getattr(exc, "code", None)
+    # Google Gen AI uses .code; Groq uses .status_code; httpx uses .response.status_code.
+    response = getattr(exc, "response", None)
+    return getattr(exc, "status_code", None) or getattr(exc, "code", None) or getattr(response, "status_code", None)
 
 
 def _is_transient(exc: Exception) -> bool:
+    if isinstance(exc, httpx.TransportError):
+        return True
     status = _status(exc)
     if status in (408, 429) or (isinstance(status, int) and 500 <= status <= 599):
         return True
@@ -158,50 +166,124 @@ def _consume_stream(chunks, provider, model):
     return text.strip()
 
 
-def _mistral_completion(prompt: str, model: str, json_mode: bool = False,
-                        max_tokens: int | None = None, stream: bool = False) -> str:
-    _validate_prompt(prompt)
-    if not config.MISTRAL_API_KEY:
-        raise ProviderUnavailableError("MISTRAL_API_KEY is missing. Configure it to use chat, routing and provider fallback.")
-    if not model.strip():
-        raise ProviderError("The Mistral model setting is empty. Set a model available to your account.")
-    try:
-        from mistralai import Mistral
-    except ImportError:
-        # SDK 2.10.1 exposes Mistral here; keep compatibility with both layouts.
-        from mistralai.client import Mistral
+def _gemini_reserve_enabled() -> bool:
+    reserve = config.GEMINI_RESERVE_MODEL.strip()
+    return bool(reserve) and reserve != config.GEMINI_FALLBACK_MODEL.strip()
 
-    def request(timeout):
-        with Mistral(api_key=config.MISTRAL_API_KEY, timeout_ms=max(1, int(timeout * 1000)), retry_config=None) as client, response_stream.connection(client):
-            options = dict(model=model, messages=[{"role": "user", "content": prompt}], max_tokens=max_tokens or config.MAX_RESPONSE_TOKENS, temperature=0.2, retries=None)
-            if json_mode:
-                options["response_format"] = {"type": "json_object"}
-            if stream:
-                return _consume_stream(client.chat.stream(**options), "Mistral", model)
-            response = client.chat.complete(**options)
-            telemetry.record_usage(response, "Mistral", model)
-            return _text_content(response.choices[0].message.content).strip()
-    return _retry(request, "Mistral")
+
+def _gemini_backup(prompt: str, *, stream: bool, empty_error: str) -> str:
+    def generate(model: str, setting: str) -> str:
+        return _gemini_generate(
+            prompt,
+            model=model,
+            max_tokens=config.MAX_RESPONSE_TOKENS,
+            stream=stream,
+            empty_error=empty_error,
+            model_setting=setting,
+            missing_key_error="GEMINI_API_KEY is missing.",
+        )
+
+    def primary() -> str:
+        return generate(config.GEMINI_FALLBACK_MODEL, "GEMINI_FALLBACK_MODEL")
+
+    if not _gemini_reserve_enabled():
+        return primary()
+    return _failover(
+        primary,
+        lambda: generate(config.GEMINI_RESERVE_MODEL.strip(), "GEMINI_RESERVE_MODEL"),
+        minimum_primary_seconds=_GEMINI_RESERVED_SECONDS,
+        fallback_key=config.GEMINI_API_KEY,
+        fallback_model=config.GEMINI_RESERVE_MODEL,
+        minimum_fallback_seconds=_GEMINI_RESERVED_SECONDS,
+    )
 
 
 def call_fallback_llm(prompt: str) -> str:
-    return _mistral_completion(prompt, config.FALLBACK_MODEL)
+    return _gemini_backup(
+        prompt,
+        stream=False,
+        empty_error="Gemini returned no calculation code. Please try again later.",
+    )
+
+
+def call_narration_fallback_llm(prompt: str) -> str:
+    return _gemini_backup(
+        prompt,
+        stream=bool(response_stream.current() and not response_stream.current().finalizing),
+        empty_error="Gemini returned no answer. Please try again later.",
+    )
 
 
 def call_conversation_llm(prompt: str) -> str:
-    if response_stream.current():
-        return _mistral_completion(prompt, config.CONVERSATION_MODEL, stream=True)
-    return _mistral_completion(prompt, config.CONVERSATION_MODEL)
+    return _gemini_generate(
+        prompt,
+        model=config.CHAT_MODEL,
+        max_tokens=config.MAX_RESPONSE_TOKENS,
+        stream=bool(response_stream.current()),
+        empty_error="Gemini returned no answer. Please try again later.",
+        model_setting="CHAT_MODEL",
+        missing_key_error="GEMINI_API_KEY is missing. Configure it to use chat and routing.",
+    )
 
 
-def call_explanation_llm(prompt: str) -> str:
-    if response_stream.current() and not response_stream.current().finalizing:
-        return _mistral_completion(prompt, config.EXPLANATION_MODEL, stream=True)
-    return _mistral_completion(prompt, config.EXPLANATION_MODEL)
+def call_saved_explanation_llm(prompt: str) -> str:
+    return _gemini_generate(
+        prompt,
+        model=config.GEMINI_EXPLANATION_MODEL,
+        max_tokens=config.MAX_RESPONSE_TOKENS,
+        stream=bool(response_stream.current() and not response_stream.current().finalizing),
+        empty_error="Gemini returned no explanation. You can still inspect the previous computed result.",
+        model_setting="GEMINI_EXPLANATION_MODEL",
+        missing_key_error="GEMINI_API_KEY is missing. Configure it to explain saved results.",
+    )
 
 
-def classify_message(prompt: str) -> str:
-    return _mistral_completion(prompt, config.CONVERSATION_MODEL, json_mode=True)
+def classify_message(input_text: str, *, instructions: str, criteria: dict[str, str]) -> dict:
+    """Classify a message using Google's Decisions API with gemini-decision-1."""
+    _validate_prompt(input_text)
+    if not config.GEMINI_API_KEY:
+        raise ProviderUnavailableError("GEMINI_API_KEY is missing.")
+    if not config.ROUTER_MODEL.strip():
+        raise ProviderError("ROUTER_MODEL is empty. Set a Gemini decision model available to your account.")
+
+    def request(timeout):
+        payload = {
+            "model": config.ROUTER_MODEL,
+            "input": input_text,
+            "questions": {
+                "route": {
+                    "type": "choice",
+                    "instructions": instructions,
+                    "criteria": criteria,
+                }
+            },
+        }
+        headers = {
+            "x-goog-api-key": config.GEMINI_API_KEY,
+            "Content-Type": "application/json",
+        }
+        with httpx.Client(timeout=timeout) as client, response_stream.connection(client):
+            response = client.post(_DECISIONS_ENDPOINT, headers=headers, json=payload)
+            response.raise_for_status()
+            data = response.json()
+        usage = data.get("usage") if isinstance(data, dict) else None
+        usage_meta = (
+            {
+                "prompt_token_count": usage.get("total_input_tokens"),
+                "candidates_token_count": usage.get("total_output_tokens"),
+                "total_token_count": usage.get("total_tokens"),
+            }
+            if isinstance(usage, dict)
+            else None
+        )
+        telemetry.record_usage(SimpleNamespace(usage_metadata=usage_meta), "Gemini", config.ROUTER_MODEL)
+        answers = data.get("answers") if isinstance(data, dict) else None
+        route_answer = answers.get("route") if isinstance(answers, dict) else None
+        if not isinstance(route_answer, dict) or not isinstance(route_answer.get("choice"), str):
+            raise ProviderUnavailableError("Gemini Decisions API returned a malformed routing response.")
+        return route_answer
+
+    return _retry(request, "Gemini")
 
 
 def _groq_completion(prompt: str, temperature: float = 0.2, stream: bool = False) -> str:
@@ -235,71 +317,191 @@ def _groq_completion(prompt: str, temperature: float = 0.2, stream: bool = False
     return _retry(request, "Groq")
 
 
-def _failover(primary, fallback, minimum_primary_seconds: float = 0):
-    """Reserve part of the shared deadline for Mistral; never mask config errors."""
+def _failover(primary, fallback, minimum_primary_seconds: float = 0, *,
+              fallback_provider: str = "Gemini", fallback_key: str | None = None,
+              fallback_model: str | None = None, minimum_fallback_seconds: float = 0,
+              extra_fallback_seconds: float = 0):
+    """Reserve shared time for backup calls when the remaining budget permits."""
+    key = config.GEMINI_API_KEY if fallback_key is None and fallback_provider == "Gemini" else fallback_key
+    backup_ready = bool(key) and (fallback_model is None or bool(fallback_model.strip()))
     with request_budget():
         try:
             remaining = max(0, _deadline.get() - time.monotonic())
-            primary_seconds = min(remaining, max(remaining * 0.6, minimum_primary_seconds)) if config.MISTRAL_API_KEY else remaining
+            if backup_ready:
+                primary_seconds = max(remaining * 0.6, minimum_primary_seconds)
+                reserve = minimum_fallback_seconds
+                if remaining >= max(minimum_primary_seconds, reserve) + reserve + extra_fallback_seconds:
+                    reserve += extra_fallback_seconds
+                if reserve:
+                    primary_seconds = (
+                        min(primary_seconds, remaining - reserve)
+                        if remaining > minimum_primary_seconds + reserve else remaining
+                    )
+            else:
+                primary_seconds = remaining
             with request_budget(seconds=primary_seconds):
                 return primary()
         except ProviderUnavailableError as error:
-            if not config.MISTRAL_API_KEY:
-                raise ProviderUnavailableError(f"{error} Mistral fallback is not configured.") from None
+            response_stream.check_cancelled()
+            if not key:
+                raise ProviderUnavailableError(f"{error} {fallback_provider} fallback is not configured.") from None
+            if fallback_model is not None and not fallback_model.strip():
+                raise ProviderError(f"{fallback_provider} fallback model setting is empty.") from None
+            remaining_now = _deadline.get() - time.monotonic()
+            if remaining_now <= 0:
+                raise ProviderUnavailableError(f"{error} The request time limit was reached.") from None
+            if fallback_provider == "Gemini" and remaining_now < 10:
+                raise ProviderUnavailableError(f"{error} Too little request time remains for Gemini fallback.") from None
             telemetry.event("fallback")
             if response_stream.current() and not response_stream.current().finalizing and response_stream.current().answer:
-                response_stream.reset_answer("The explanation was interrupted. Restarting with the backup provider.")
+                response_stream.reset_answer("The explanation was interrupted. Restarting with a backup model.")
             return fallback()
 
 
 def call_analysis_llm(prompt: str, temperature: float = 0.2) -> str:
     _validate_prompt(prompt)
-    return _failover(lambda: _groq_completion(prompt, temperature), lambda: call_fallback_llm(prompt))
+    return _failover(
+        lambda: _groq_completion(prompt, temperature),
+        lambda: call_fallback_llm(prompt),
+        fallback_provider="Gemini",
+        fallback_key=config.GEMINI_API_KEY,
+        fallback_model=config.GEMINI_FALLBACK_MODEL,
+        minimum_fallback_seconds=_GEMINI_RESERVED_SECONDS,
+        extra_fallback_seconds=_GEMINI_RESERVED_SECONDS if _gemini_reserve_enabled() else 0,
+    )
 
 
 def call_narration_llm(prompt: str) -> str:
     _validate_prompt(prompt)
-    if response_stream.current():
-        return _failover(lambda: _groq_completion(prompt, stream=True), lambda: call_explanation_llm(prompt))
-    return _failover(lambda: _groq_completion(prompt), lambda: call_explanation_llm(prompt))
+    stream = bool(response_stream.current())
+    return _failover(
+        lambda: _groq_completion(prompt, stream=stream),
+        lambda: call_narration_fallback_llm(prompt),
+        fallback_provider="Gemini",
+        fallback_key=config.GEMINI_API_KEY,
+        fallback_model=config.GEMINI_FALLBACK_MODEL,
+        minimum_fallback_seconds=_GEMINI_RESERVED_SECONDS,
+        extra_fallback_seconds=_GEMINI_RESERVED_SECONDS if _gemini_reserve_enabled() else 0,
+    )
 
 
-def _gemini_completion(prompt: str) -> str:
+def _consume_gemini_stream(chunks, client, provider: str, model: str) -> str:
+    """Deliver real Gemini text chunks; retain a single usage report per attempt."""
+    text = ""
+    usage_response = None
+    finished = False
+    deadline = _deadline.get()
+    delivery = response_stream.current()
+    bind = getattr(delivery.cancelled, "bind", None) if delivery else None
+
+    def close_all():
+        for obj in (chunks, client):
+            close = getattr(obj, "close", None)
+            if close:
+                try:
+                    close()
+                except Exception:
+                    pass
+
+    if bind:
+        bind(close_all)
+    try:
+        for chunk in chunks:
+            response_stream.check_cancelled()
+            if deadline and time.monotonic() >= deadline:
+                raise ProviderUnavailableError("The response time limit was reached.")
+            if getattr(chunk, "usage_metadata", None) is not None:
+                usage_response = chunk
+            value = getattr(chunk, "text", None) or ""
+            if value:
+                value = value[:max(0, config.MAX_MESSAGE_CHARS - len(text))]
+                if value:
+                    text += value
+                    response_stream.text(value)
+            candidates = getattr(chunk, "candidates", None) or []
+            for candidate in candidates[:1]:
+                if getattr(candidate, "finish_reason", None) is not None:
+                    finished = True
+    except response_stream.ResponseCancelled:
+        raise
+    except Exception as exc:
+        response_stream.check_cancelled()
+        if text:
+            error = ProviderUnavailableError if isinstance(exc, ProviderUnavailableError) or _is_transient(exc) else ProviderError
+            raise error(_safe_error(exc, provider)) from None
+        raise
+    finally:
+        if bind:
+            bind(None)
+        if usage_response is not None or (finished and text.strip()):
+            telemetry.record_usage(usage_response or SimpleNamespace(usage_metadata=None), provider, model)
+        close = getattr(chunks, "close", None)
+        if close:
+            try:
+                close()
+            except Exception:
+                pass
+    response_stream.check_cancelled()
+    if not finished or not text.strip():
+        raise ProviderUnavailableError(f"{provider} did not finish the answer. Please try again later.")
+    return text.strip()
+
+
+def _thinking_config(model: str, types):
+    if model.startswith(("gemini-3.5-flash-lite", "gemini-3.1-flash-lite")):
+        return types.ThinkingConfig(thinking_level="minimal")
+    if model.startswith("gemini-4-hydrogen"):
+        return types.ThinkingConfig(thinking_level="low")
+    return None
+
+
+def _gemini_generate(prompt: str, *, model: str, max_tokens: int, stream: bool = False,
+                     empty_error: str, model_setting: str, missing_key_error: str) -> str:
     _validate_prompt(prompt)
     if not config.GEMINI_API_KEY:
-        raise ProviderUnavailableError("GEMINI_API_KEY is missing.")
-    if not config.MEMORY_MODEL.strip():
-        raise ProviderError("MEMORY_MODEL is empty. Set a Gemini model available to your account.")
+        raise ProviderUnavailableError(missing_key_error)
+    if not model.strip():
+        raise ProviderError(f"{model_setting} is empty. Set a Gemini model available to your account.")
     from google import genai
     from google.genai import types
 
     def request(timeout):
         # Gemini rejects deadlines shorter than ten seconds. Do not exceed the
-        # shared budget to satisfy that constraint: let Mistral use the remainder.
+        # shared budget to satisfy that constraint.
         if timeout < 10:
-            raise ProviderUnavailableError("Too little request time remains for Gemini; using memory fallback if available.")
+            raise ProviderUnavailableError("Too little request time remains for Gemini; using fallback if available.")
         options = types.HttpOptions(timeout=max(1, int(timeout * 1000)),
                                     retry_options=types.HttpRetryOptions(attempts=1))
-        with genai.Client(api_key=config.GEMINI_API_KEY, vertexai=False, http_options=options) as client:
-            response = client.models.generate_content(
-                model=config.MEMORY_MODEL, contents=prompt,
-                config=types.GenerateContentConfig(
-                    max_output_tokens=config.MAX_MEMORY_RESPONSE_TOKENS,
-                    automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True),
-                    thinking_config=(types.ThinkingConfig(thinking_level="minimal")
-                                     if config.MEMORY_MODEL.startswith(("gemini-3.5-flash-lite", "gemini-3.1-flash-lite")) else None),
-                ),
-            )
-            telemetry.record_usage(response, "Gemini", config.MEMORY_MODEL)
+        gen_config = types.GenerateContentConfig(
+            max_output_tokens=max_tokens,
+            automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True),
+            thinking_config=_thinking_config(model, types),
+        )
+        with genai.Client(api_key=config.GEMINI_API_KEY, vertexai=False, http_options=options) as client, response_stream.connection(client):
+            if stream:
+                chunks = client.models.generate_content_stream(model=model, contents=prompt, config=gen_config)
+                return _consume_gemini_stream(chunks, client, "Gemini", model)
+            response = client.models.generate_content(model=model, contents=prompt, config=gen_config)
+            telemetry.record_usage(response, "Gemini", model)
             text = (response.text or "").strip()
             if not text:
-                raise ProviderUnavailableError("Gemini returned no memory note. Recent conversation is still available.")
+                raise ProviderUnavailableError(empty_error)
             return text
+
     return _retry(request, "Gemini")
 
 
+def _gemini_completion(prompt: str) -> str:
+    return _gemini_generate(
+        prompt,
+        model=config.MEMORY_MODEL,
+        max_tokens=config.MAX_MEMORY_RESPONSE_TOKENS,
+        stream=False,
+        empty_error="Gemini returned no memory note. Recent conversation is still available.",
+        model_setting="MEMORY_MODEL",
+        missing_key_error="GEMINI_API_KEY is missing.",
+    )
+
+
 def call_memory_llm(prompt: str) -> str:
-    _validate_prompt(prompt)
-    return _failover(lambda: _gemini_completion(prompt), lambda: _mistral_completion(
-        prompt, config.EXPLANATION_MODEL, max_tokens=config.MAX_MEMORY_RESPONSE_TOKENS),
-        minimum_primary_seconds=10.1)
+    return _gemini_completion(prompt)

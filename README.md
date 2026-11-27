@@ -11,7 +11,7 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-Frontend-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-Backend-009688?style=for-the-badge&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
 [![Pandas](https://img.shields.io/badge/Pandas-Data%20Analysis-150458?style=for-the-badge&logo=pandas&logoColor=white)](https://pandas.pydata.org/)
-[![LLM APIs](https://img.shields.io/badge/LLM-Groq%20%7C%20Mistral%20%7C%20Gemini-6C63FF?style=for-the-badge)](#-provider-configuration)
+[![LLM APIs](https://img.shields.io/badge/LLM-Groq%20%7C%20Gemini-6C63FF?style=for-the-badge)](#-provider-configuration)
 
 **[Live Demo](https://databuddy-demo.pages.dev/) · [Overview](#-overview) · [How It Works](#-how-it-works) · [Setup](#-installation) · [Privacy](#-data-and-privacy)**
 
@@ -57,7 +57,7 @@ The web app pairs a **React/TypeScript frontend** with a **FastAPI backend** aro
 - 🧠 Keep bounded conversation context with summaries updated in six-exchange cycles.
 - 🧭 Choose dataset-aware suggestions for exploration, charts, comparisons, trends and data quality.
 - 🌗 Use light/dark themes and a layout that adapts to desktop and mobile screens.
-- 🔁 Use Groq, Gemini and Mistral with configured fallback and session usage feedback.
+- 🔁 Use Groq and Gemini with configured fallback and session usage feedback.
 
 ---
 
@@ -111,7 +111,7 @@ Provider prompts may include sample rows, dataset statistics, conversation conte
 
 - **Python 3.11** for the backend and analysis core.
 - **Node.js 24** and npm for the frontend.
-- Groq, Gemini and Mistral API keys for the configured primary and fallback roles.
+- Groq and Gemini API keys for the configured primary and fallback roles.
 - Network access to the providers and enough memory for the dataset and calculation worker.
 - Docker when running the packaged backend locally.
 
@@ -154,7 +154,6 @@ On a fresh clone, copy `.env.example` to `.env` and enter your own keys. The cor
 ```dotenv
 GROQ_API_KEY=your-groq-key
 GEMINI_API_KEY=your-gemini-key
-MISTRAL_API_KEY=your-mistral-key
 DATABUDDY_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
 EXEC_TIMEOUT_SECONDS=30
 DEBUG=false
@@ -232,12 +231,13 @@ In `frontend`, run `npm test` and `npm run build`. Regression tests use fake pro
 |---|---|---|
 | `GROQ_API_KEY` | User supplied | Authenticate analysis-code generation and result narration. |
 | `ANALYSIS_MODEL` | `openai/gpt-oss-120b` | Groq-hosted analysis and narration model. |
-| `GEMINI_API_KEY` | User supplied | Authenticate conversation-memory summaries. |
-| `MEMORY_MODEL` | `gemini-3.5-flash-lite` | Primary memory-summary model. |
-| `MISTRAL_API_KEY` | User supplied | Authenticate routing, conversation, explanation and fallback. |
-| `MISTRAL_CHAT_MODEL` | `ministral-8b-latest` | Route messages and answer ordinary conversation. |
-| `MISTRAL_EXPLANATION_MODEL` | `ministral-14b-latest` | Explain the last successful analysis. |
-| `MISTRAL_FALLBACK_MODEL` | `ministral-14b-latest` | Fallback for Groq analysis/narration and Gemini memory. |
+| `GEMINI_API_KEY` | User supplied | Authenticate request routing, ordinary chat, saved-result explanations, Groq fallback and conversation memory. |
+| `ROUTER_MODEL` | `gemini-decision-1` | Classify dataset-loaded requests via Google's Decisions API. |
+| `CHAT_MODEL` | `gemini-3.1-flash-lite` | Answer ordinary conversation before and after dataset upload. |
+| `GEMINI_EXPLANATION_MODEL` | `gemini-4-hydrogen` | Explain the last successful saved calculation or chart. |
+| `GEMINI_FALLBACK_MODEL` | `gemini-4-hydrogen` | Fallback for Groq analysis code and result/chart narration. |
+| `GEMINI_RESERVE_MODEL` | `gemini-3.5-flash-lite` | Reserve for transient Hydrogen failures in the Groq fallback path. Set to an empty value to disable it. |
+| `MEMORY_MODEL` | `gemini-3.5-flash-lite` | Primary memory-summary model (falls back to bounded local notes). |
 | `DATABUDDY_TIMEZONE` | `Asia/Kolkata` | Time zone for local-time answers. |
 | `EXEC_TIMEOUT_SECONDS` | `5` | Calculation deadline, configurable from 1 to 30 seconds. The deployment uses 30. |
 | `DEBUG` | `false` | Enable diagnostic logging. Keep disabled for normal demonstrations. |
@@ -311,8 +311,7 @@ Generated calculations run with basic code checks, a child-process timeout and o
 | **pandas / NumPy / openpyxl** | Dataset loading, profiling and calculations |
 | **Plotly / react-plotly.js** | Interactive charts and chart exports |
 | **Groq** | Analysis-code generation and result narration |
-| **Gemini** | Primary conversation-memory summaries |
-| **Mistral** | Routing, conversation, explanations and fallback |
+| **Gemini** | Request routing (`gemini-decision-1`), ordinary chat (`gemini-3.1-flash-lite`), saved-result explanations and Groq fallback (`gemini-4-hydrogen`) and conversation memory (`gemini-3.5-flash-lite`) |
 | **Docker / Render** | Packaged Python backend and free API hosting |
 | **Cloudflare Pages** | Free static frontend hosting |
 | **pytest / Node test runner** | Offline backend and frontend regression checks |

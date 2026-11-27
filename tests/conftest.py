@@ -14,5 +14,4 @@ def offline_only(monkeypatch):
         raise AssertionError("Regression tests must not make network requests.")
     monkeypatch.setattr(socket.socket, "connect", reject_network)
     monkeypatch.setattr(config, "GROQ_API_KEY", None)
-    monkeypatch.setattr(config, "MISTRAL_API_KEY", None)
     monkeypatch.setattr(config, "GEMINI_API_KEY", None)

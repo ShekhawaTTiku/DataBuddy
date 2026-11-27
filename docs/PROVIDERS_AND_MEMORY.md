@@ -1,6 +1,6 @@
 # Providers and temporary conversation memory
 
-The dedicated API captures allowlisted usage metadata and available Groq quota headers. Web chat/narration delivers incremental text through request-local callbacks while preserving the completed string-return interface. Routing, code generation and memory remain buffered. With a dataset loaded, web routing is classification-only followed by a separate streamed Mistral chat call for conversation. Before upload, conversation calls Mistral directly without classification or calculation. Legacy interfaces retain combined router/chat behavior for dataset sessions. See [streaming](STREAMING.md) and [usage policy](WEBAPP_SETUP.md) for recovery, estimates, reported totals and unavailable account quotas.
+The dedicated API captures allowlisted usage metadata and available Groq quota headers. Web chat/narration delivers incremental text through request-local callbacks while preserving the completed string-return interface. Routing, code generation and memory remain buffered. With a dataset loaded, web routing classifies via Gemini Decision 1 (zero output tokens) followed by a separate streamed Gemini chat call for conversation. Before upload, conversation calls Gemini directly without classification or calculation. Legacy interfaces retain buffered replies through the same routing and chat functions. See [streaming](STREAMING.md) and [usage policy](WEBAPP_SETUP.md) for recovery, estimates, reported totals and unavailable account quotas.
 
 Implemented at the owner's request on 2026-10-22 (Asia/Kolkata). This supersedes the initial readiness decision to omit active Gemini summarization. The original backup already used a rolling recent-turn window; it contained an unused Gemini function, not a working summary cycle. Removing that unused plumbing did not remove an active feature. This implementation adds the agreed cycle for the first time in the working checkout.
 
@@ -8,17 +8,16 @@ Implemented at the owner's request on 2026-10-22 (Asia/Kolkata). This supersedes
 
 | Task | Primary | Fallback |
 | --- | --- | --- |
-| Analysis and chart code | Groq `openai/gpt-oss-120b` | Mistral `ministral-14b-latest` |
-| Computed-result narration, chart insight, optional suggestion | Groq `openai/gpt-oss-120b` | Mistral `ministral-14b-latest` |
-| Brief notes and rolling paragraph | Gemini `gemini-3.5-flash-lite` | Mistral `ministral-14b-latest` |
-| Routing and ordinary chat | Mistral `ministral-8b-latest` | Local routing rules during outages; chat failure is shown clearly |
-| Explain previous analysis | Mistral `ministral-14b-latest` | Saved actual computation remains available |
+| Analysis and chart code | Groq `openai/gpt-oss-120b` | Gemini `gemini-4-hydrogen`, then `gemini-3.5-flash-lite` on a transient Hydrogen failure |
+| Computed-result narration, chart insight, optional suggestion | Groq `openai/gpt-oss-120b` | Gemini `gemini-4-hydrogen`, then `gemini-3.5-flash-lite` on a transient Hydrogen failure |
+| Brief notes and rolling paragraph | Gemini `gemini-3.5-flash-lite` (`MEMORY_MODEL`) | Bounded local uncompressed notes and prior rolling paragraph |
+| Request routing | Gemini `gemini-decision-1` (`ROUTER_MODEL`) | Local routing rules (and brief clarification when ambiguous) |
+| Ordinary chat | Gemini `gemini-3.1-flash-lite` (`CHAT_MODEL`) | Chat failure is shown clearly |
+| Explain previous analysis | Gemini `gemini-4-hydrogen` (`GEMINI_EXPLANATION_MODEL`) | Saved actual computation remains available |
 
-Python computes the result; providers generate code, interpret evidence or maintain fallible conversation context. A model-written summary never replaces actual evidence. Small role-specific models avoid using the largest model for every task. Model availability was checked live on the owner's account: Medium appeared in the catalog but returned HTTP 429 with a zero request-per-minute limit. The default code fallback therefore uses Ministral 14B, which passed actual Superstore calculation/chart code generation, narration and memory checks. This respects the zero-budget scope; no paid plan was activated. Existing model environment overrides are respected.
+Python computes the result; providers generate code, interpret evidence or maintain fallible conversation context. A model-written summary never replaces actual evidence. Small role-specific models avoid using the largest model for every task, keeping within zero-budget free-tier operation (Mistral support was retired after its November 2026 Free-tier API removal). Existing model environment overrides are respected.
 
-Official references checked on 2026-10-22: [Groq supported models](https://console.groq.com/docs/models), [Gemini Flash-Lite](https://ai.google.dev/gemini-api/docs/models/gemini-3.5-flash-lite), [Mistral model IDs](https://docs.mistral.ai/vibe/code/cli/configuration), [Google Gen AI SDK](https://googleapis.github.io/python-genai/), [Gemini pricing/free-tier disclosure](https://ai.google.dev/gemini-api/docs/pricing). No billing, paid plan or account settings were activated or inspected; quotas/access depend on the owner's accounts. Ordinary free-tier text inference is used without tools, search, caching or server-side Gemini conversation storage.
-
-The Mistral SDK import compatibility fallback remains: try `mistralai.Mistral`, then `mistralai.client.Mistral`. The latter works with installed SDK 2.10.1, so the Antigravity suggestion to delete it was not adopted.
+Official references: [Groq supported models](https://console.groq.com/docs/models), [Gemini Flash-Lite](https://ai.google.dev/gemini-api/docs/models/gemini-3.5-flash-lite), [Google Gen AI SDK](https://googleapis.github.io/python-genai/), [Gemini pricing/free-tier disclosure](https://ai.google.dev/gemini-api/docs/pricing). No billing, paid plan or account settings were activated or inspected; quotas/access depend on the owner's accounts. Ordinary free-tier text inference is used without tools, search, caching or server-side Gemini conversation storage.
 
 ## Six-note cycle
 
@@ -35,10 +34,11 @@ All fields belong to one `ConversationState`, held by its session's `DataBuddy`,
 
 ## Failure and call limits
 
-- Missing Groq/Gemini credentials permit direct Mistral fallback when configured. Temporary outages, connection timeouts, 408/429 and 5xx failures permit fallback after the bounded retry policy. Empty primary responses also permit fallback. Invalid credentials, access denials and unsupported model/request errors are configuration failures and are reported without silent provider switching.
-- Routing uses local rules during temporary Mistral failure or malformed routing output. Permanent Mistral configuration failures surface clearly. Mistral cannot fall back to itself.
-- SDK retry layers are disabled. The shared question deadline includes routing, code, narration and memory. Where Mistral is configured, primary calls normally receive 60% of remaining role-call time, reserving time for fallback. Gemini requires a minimum 10-second API deadline, discovered during live verification: its slice is raised to 10.1 seconds when enough total time remains, otherwise Gemini is skipped for Mistral. SDK deadlines never exceed remaining overall time; time already spent cannot be recovered.
-- Memory receives at most `MEMORY_TIMEOUT_SECONDS` (default 20) inside the remaining question budget; response cap is 768 tokens. Normal success adds one memory call/exchange, INCLUDING rollover: the sixth brief and paragraph merge share one call. Retries and fallback can add calls within those limits. Gemini Flash-Lite uses minimal thinking, no custom sampling temperature and explicitly disabled automatic function calling. No live calls run in the offline test suite; the separately opt-in live verification script requires `--live`.
+- Missing Groq credentials permit direct fallback to Gemini Hydrogen (`GEMINI_FALLBACK_MODEL`) when `GEMINI_API_KEY` is configured. Temporary outages, connection timeouts, 408/429 and 5xx failures permit fallback after the bounded retry policy. Empty primary responses also permit fallback. Invalid credentials, access denials and unsupported model/request errors are configuration failures and are reported without silent provider switching.
+- If Hydrogen fails with an eligible error in this fallback path, the same Gemini key can try `GEMINI_RESERVE_MODEL`. The reserve uses Gemini 3.5 Flash-Lite by default. A blank value or the same model as `GEMINI_FALLBACK_MODEL` disables the extra step. This reserve shares the Gemini account and cannot bypass a provider-wide outage or shared quota limit.
+- Routing uses local rules for clear requests (and asks a brief clarification when still ambiguous) if Gemini Decision 1 returns an invalid or low-confidence choice, times out, lacks credentials, or hits an authentication, billing, quota, or access error. Cancellation propagates through this path. Clear calculation and chart requests still reach Groq when the router fails.
+- SDK retry layers are disabled. Routing, code, narration and memory share the question deadline. Groq normally receives 60% of the remaining time for its role. When there is enough time, the app reserves 10.1 seconds for Hydrogen and a further 10.1 seconds for Flash-Lite. Under a tight deadline, it prioritizes Hydrogen and attempts a reserve call only if at least 10 seconds remain. Gemini GenerateContent requires a 10-second minimum. When less time remains, the app skips the call and surfaces the applicable result or memory notice.
+- Memory receives at most `MEMORY_TIMEOUT_SECONDS` (default 20) inside the remaining question budget; response cap is 768 tokens. Normal success adds one memory call/exchange, INCLUDING rollover: the sixth brief and paragraph merge share one call. Retries can add calls within those limits. Missing `GEMINI_API_KEY`, timeouts, transient outages, configuration errors, and empty replies fall back to clipped `[status; uncompressed]` local notes in `ConversationState` without calling another provider. Gemini Flash-Lite uses minimal thinking, no custom sampling temperature and explicitly disabled automatic function calling. No live calls run in the offline test suite; the separately opt-in live verification script requires `--live`.
 - If note generation fails, keep a clearly marked clipped local note and preserve recent full exchanges and any previous paragraph. A safe notice explains the memory limitation in UI and CLI. Do not attempt compression in that exchange.
 - If compression fails, keep the old paragraph and six notes, including a clipped local note for the latest exchange. A later exchange retries the combined update using the newest five prior notes and current exchange. During repeated failure, older uncompressed details can be dropped; storage stays bounded. No invented local summary is substituted.
 - Provider failures never discard a completed answer, calculation or chart. Memory errors remain notices rather than changing an otherwise successful answer to failure.
@@ -49,8 +49,9 @@ All fields belong to one `ConversationState`, held by its session's `DataBuddy`,
 - [x] Offline six-exchange test produces six notes, then one paragraph and zero notes.
 - [x] Twelve-exchange test merges the old paragraph with the next six notes.
 - [x] Note/paragraph/context lengths and repeated outage bounds hold.
-- [x] Gemini timeout/quota errors use Ministral 14B; configuration errors show safe messages.
-- [x] Groq code/narration fallback use working Ministral 14B defaults and respect separate model overrides.
+- [x] Gemini memory missing-key/timeout/quota/empty failures keep local clipped notes and preserve prior summaries, answers, results and charts.
+- [x] Groq code/narration fallback uses Gemini Hydrogen defaults (`GEMINI_FALLBACK_MODEL`) and respects separate model overrides.
+- [x] Transient Hydrogen errors can use the Flash-Lite reserve. Permanent access errors stop failover, and an interrupted draft is cleared before its replacement streams.
 - [x] Primary timeout leaves time for fallback; exhausted global deadline makes no further request.
 - [x] Answers/evidence survive memory failures; exchanges are recorded once.
 - [x] Reset, dataset replacement and separate sessions isolate/clear summary state.

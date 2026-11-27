@@ -320,8 +320,8 @@ hr {
 # ---------------------------------------------------------------------------
 
 def _check_api_keys() -> list[str]:
-    # Groq alone works through local routing. Mistral alone supports fallback.
-    return [] if (config.GROQ_API_KEY or config.MISTRAL_API_KEY) else ["GROQ_API_KEY or MISTRAL_API_KEY"]
+    # Gemini enables routing/chat/explanations/memory/fallback; Groq enables primary analysis/narration.
+    return [] if (config.GROQ_API_KEY or config.GEMINI_API_KEY) else ["GROQ_API_KEY or GEMINI_API_KEY"]
 
 
 def _load_dataset(uploaded_file) -> None:
@@ -381,7 +381,7 @@ def main() -> None:
     )
     missing_keys = _check_api_keys()
     if missing_keys:
-        st.warning("Add a Groq or Mistral API key in local .env or Streamlit Secrets to enable analysis.", icon="🔑")
+        st.warning("Add a Groq or Gemini API key in local .env or Streamlit Secrets to enable chat and analysis.", icon="🔑")
     with st.sidebar:
         st.markdown("### 📂 Dataset")
         st.caption("CSV or XLSX · maximum 20 MB. Demo data only.")

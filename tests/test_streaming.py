@@ -58,48 +58,8 @@ def test_installed_groq_sdk_stream_serialization_and_final_usage(monkeypatch):
     assert totals["limits"][0]["values"]["x-ratelimit-remaining-tokens"] == "400"
 
 
-def test_mistral_stream_uses_installed_client_path_and_no_sdk_retries(monkeypatch):
-    import mistralai.client
-    monkeypatch.setattr(config, "MISTRAL_API_KEY", "offline-placeholder")
-    fake = MagicMock()
-    fake.__enter__.return_value = fake
-    fake.chat.stream.return_value = iter([NS(data=chunk("Hi")), NS(data=chunk(finish="stop", usage=usage()))])
-    factory = MagicMock(return_value=fake)
-    monkeypatch.setattr(mistralai.client, "Mistral", factory)
-    # Both import layouts remain supported by the application.
-    import mistralai
-    monkeypatch.setattr(mistralai, "Mistral", factory, raising=False)
-    observations = []
-    with telemetry.observe(observations), delivery.observe(lambda *_: None, threading.Event()):
-        assert llm_clients.call_conversation_llm("hello") == "Hi"
-    assert fake.chat.stream.call_args.kwargs["retries"] is None
-    assert factory.call_args.kwargs["retry_config"] is None
-    assert telemetry.summarize(observations)["total"] == 40
-
-
-def test_installed_mistral_sdk_serializes_stream_request_offline(monkeypatch):
-    import mistralai
-    import mistralai.client
-    real = mistralai.client.Mistral
-    monkeypatch.setattr(config, "MISTRAL_API_KEY", "offline-placeholder")
-    requests = []
-    def respond(request):
-        requests.append(json.loads(request.content))
-        payload = {"id": "offline", "model": "fixture", "choices": [{"index": 0, "delta": {"content": "Hello"}, "finish_reason": "stop"}],
-                   "usage": {"prompt_tokens": 30, "completion_tokens": 10, "total_tokens": 40}}
-        return httpx.Response(200, headers={"content-type": "text/event-stream"}, content="data: " + json.dumps(payload) + "\n\ndata: [DONE]\n\n")
-    def factory(**kwargs):
-        return real(**kwargs, client=httpx.Client(transport=httpx.MockTransport(respond)))
-    monkeypatch.setattr(mistralai, "Mistral", factory, raising=False)
-    monkeypatch.setattr(mistralai.client, "Mistral", factory)
-    events = []
-    with telemetry.observe(events), delivery.observe(lambda *_: None, threading.Event()):
-        assert llm_clients.call_conversation_llm("hello") == "Hello"
-    assert requests[0]["stream"] is True and telemetry.summarize(events)["complete"]
-
-
 def test_midstream_fallback_replaces_text_and_records_both_attempts(monkeypatch):
-    monkeypatch.setattr(config, "MISTRAL_API_KEY", "offline-placeholder")
+    monkeypatch.setattr(config, "GEMINI_API_KEY", "offline-placeholder")
     updates, events = [], []
     def primary(*args, **kwargs):
         telemetry.event("attempt", provider="Groq")
@@ -107,17 +67,20 @@ def test_midstream_fallback_replaces_text_and_records_both_attempts(monkeypatch)
         raise llm_clients.ProviderUnavailableError("temporary outage")
     def fallback(*args, **kwargs):
         assert delivery.current().answer == ""
-        telemetry.event("attempt", provider="Mistral")
-        telemetry.record_usage(NS(usage=usage()), "Mistral", "fixture")
+        assert kwargs["model"] == config.GEMINI_FALLBACK_MODEL
+        assert kwargs["stream"] is True
+        telemetry.event("attempt", provider="Gemini")
+        telemetry.record_usage(NS(usage_metadata=NS(prompt_token_count=30, candidates_token_count=10, total_token_count=40)), "Gemini", config.GEMINI_FALLBACK_MODEL)
         delivery.text("Fresh backup answer")
         return "Fresh backup answer"
     monkeypatch.setattr(llm_clients, "_groq_completion", primary)
-    monkeypatch.setattr(llm_clients, "_mistral_completion", fallback)
+    monkeypatch.setattr(llm_clients, "_gemini_generate", fallback)
     with telemetry.observe(events), delivery.observe(lambda k, v: updates.append((k, v)), threading.Event()):
         assert llm_clients.call_narration_llm("computed evidence") == "Fresh backup answer"
     assert [k for k, _ in updates] == ["text", "reset", "text"]
     summary = telemetry.summarize(events)
     assert summary["attempts"] == 2 and summary["fallbacks"] == 1 and not summary["complete"]
+    assert summary["calls"][0]["provider"] == "Gemini" and summary["calls"][0]["model"] == config.GEMINI_FALLBACK_MODEL
 
 
 @pytest.mark.parametrize("chunks", [[], [chunk("unfinished")]])
@@ -138,17 +101,17 @@ def test_private_stream_error_is_sanitized_and_content_is_bounded():
         assert len(state.answer) == config.MAX_MESSAGE_CHARS
 
 
-def test_streaming_router_classifies_only_but_legacy_keeps_single_call_reply(monkeypatch):
-    prompts = []
-    def classify(prompt):
-        prompts.append(prompt)
-        return '{"route":"conversation","reply":"buffered answer"}'
+def test_router_classifies_only_and_ordinary_chat_generates_one_reply(monkeypatch):
+    seen = []
+    def classify(input_text, *, instructions, criteria):
+        seen.append((input_text, criteria))
+        return {"choice": "conversation", "confidence": 0.95}
     monkeypatch.setattr(message_handler, "classify_message", classify)
     args = dict(question="Hello", columns=["Sales"], conversation="", has_analysis_context=False)
-    assert message_handler.route_message(**args)["reply"] == "buffered answer"
+    assert message_handler.route_message(**args) == {"route": "conversation", "reply": ""}
     with delivery.observe(lambda *_: None, threading.Event()):
-        assert message_handler.route_message(**args)["reply"] == ""
-    assert "Classify only" in prompts[-1]
+        assert message_handler.route_message(**args) == {"route": "conversation", "reply": ""}
+    assert len(seen) == 2
 
 
 @pytest.mark.parametrize("cancel_at", ["text", "evidence"])
