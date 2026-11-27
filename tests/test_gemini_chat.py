@@ -1,5 +1,4 @@
 """Offline tests for Gemini 3.1 Flash-Lite ordinary chat, streaming, CLI and Streamlit."""
-import importlib
 import json
 import threading
 import time
@@ -25,22 +24,39 @@ from backend.core import telemetry
 from backend.legacy import streamlit_support
 
 
+def _load_isolated_config(monkeypatch, **env):
+    import importlib.util
+    from pathlib import Path
+
+    monkeypatch.setattr("dotenv.load_dotenv", lambda *a, **kw: False)
+    for key in ("ROUTER_MODEL", "CHAT_MODEL", "MEMORY_MODEL", "MISTRAL_CHAT_MODEL"):
+        monkeypatch.delenv(key, raising=False)
+    for key, value in env.items():
+        if value is not None:
+            monkeypatch.setenv(key, value)
+    spec = importlib.util.spec_from_file_location("_isolated_chat_config", Path(config.__file__))
+    module = importlib.util.module_from_spec(spec)
+    assert spec.loader is not None
+    spec.loader.exec_module(module)
+    return module
+
+
 def test_chat_model_default_override_and_isolation_from_memory_and_mistral(monkeypatch):
-    assert config.CHAT_MODEL == "gemini-3.1-flash-lite"
-    assert config.MEMORY_MODEL == "gemini-3.5-flash-lite"
     assert "CHAT_MODEL" in streamlit_support._SECRET_KEYS
-    monkeypatch.setenv("MISTRAL_CHAT_MODEL", "ministral-8b-latest")
-    reloaded = importlib.reload(config)
-    try:
-        assert reloaded.CHAT_MODEL == "gemini-3.1-flash-lite"
-        monkeypatch.setenv("CHAT_MODEL", "custom-chat-gemini")
-        reloaded = importlib.reload(config)
-        assert reloaded.CHAT_MODEL == "custom-chat-gemini"
-        assert reloaded.MEMORY_MODEL == "gemini-3.5-flash-lite"
-    finally:
-        monkeypatch.delenv("CHAT_MODEL", raising=False)
-        monkeypatch.delenv("MISTRAL_CHAT_MODEL", raising=False)
-        importlib.reload(config)
+    default_cfg = _load_isolated_config(monkeypatch)
+    assert default_cfg.CHAT_MODEL == "gemini-3.1-flash-lite"
+    assert default_cfg.MEMORY_MODEL == "gemini-3.5-flash-lite"
+
+    mistral_only_cfg = _load_isolated_config(monkeypatch, MISTRAL_CHAT_MODEL="ministral-8b-latest")
+    assert mistral_only_cfg.CHAT_MODEL == "gemini-3.1-flash-lite"
+
+    override_cfg = _load_isolated_config(
+        monkeypatch,
+        CHAT_MODEL="custom-chat-gemini",
+        MEMORY_MODEL="custom-memory-gemini",
+    )
+    assert override_cfg.CHAT_MODEL == "custom-chat-gemini"
+    assert override_cfg.MEMORY_MODEL == "custom-memory-gemini"
 
 
 def test_installed_gemini_chat_stream_serializes_and_records_single_usage(monkeypatch):

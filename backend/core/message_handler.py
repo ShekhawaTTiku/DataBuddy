@@ -1,4 +1,5 @@
 """Routes incoming messages via Gemini Decision 1 with local rule fallback."""
+import math
 import re
 from datetime import datetime
 from pathlib import Path
@@ -11,6 +12,10 @@ from backend.core.llm_clients import call_conversation_llm, call_explanation_llm
 _PROMPTS_DIR = Path(__file__).parent / "prompts"
 _VALID_ROUTES = {"analysis", "conversation", "explain_analysis", "clock", "visualization", "modify_chart"}
 _MIN_ROUTER_CONFIDENCE = 0.55
+_COLUMN_IGNORED_WORDS = {
+    "a", "an", "the", "is", "are", "was", "were", "in", "on", "of", "to",
+    "for", "and", "or", "my", "me", "i", "you", "it", "this", "that", "data", "name",
+}
 
 _ROUTER_INSTRUCTIONS = (
     "Classify the current user message for DataBuddy into exactly one route. "
@@ -41,14 +46,19 @@ _EXPLANATION_QUERY = re.compile(
 _CONVERSATION_EXPLANATION_QUERY = re.compile(
     r"\b(?:why did you say|why did you answer|why do you say|why do you answer|"
     r"how did you know|how do you know)\b", re.I)
+_CONCEPT_QUERY = re.compile(
+    r"^\s*(?:what (?:is|are) (?:a |an )?(?:mean|median|average|bar chart|line chart|pie chart|histogram|scatter plot|box plot|heatmap|dashboard|chart|plot|graph)|"
+    r"what (?:charts?|plots?|graphs?|visualizations?) can you (?:make|create|draw|build)|"
+    r"how do i (?:upload|use|export|download|save|make|create))\b", re.I)
 _APP_HELP_QUERY = re.compile(
-    r"\b(what (?:charts?|plots?|graphs?|visualizations?) can you (?:make|create|draw|build)|"
-    r"what can you do|how do i (?:upload|use|export|download)|"
-    r"what is (?:a |an )?(?:mean|median|average|bar chart|line chart|pie chart|histogram|scatter plot))\b", re.I)
+    r"\b(can you help me (?:upload|use|export|download|remove|reset)|"
+    r"upload (?:my |a )?(?:data|dataset|file|csv|xlsx)|"
+    r"is (?:my )?(?:data|dataset|chat) saved|"
+    r"what can you do)\b", re.I)
 _ANALYSIS_TERMS = re.compile(
     r"\b(sum|total|average|mean|median|count|highest|lowest|top|bottom|compare|"
     r"group|grouped|filter|sales|profit|revenue|rows|columns|missing values|"
-    r"dataset|data|trend|outlier)\b", re.I)
+    r"trend|outlier|calculate|compute|minimum|maximum|summarize|summary|inspect|how many)\b", re.I)
 _VISUALIZATION_TERMS = re.compile(
     r"\b(chart|plot|graph|visuali[sz]e|bar chart|line chart|pie chart|histogram|"
     r"scatter|heatmap|distribution|correlation|dashboard|donut|box plot|"
@@ -61,7 +71,7 @@ _FOLLOWUP = re.compile(r"\b(what about|second highest|second-highest|same for|an
 _CONVERSATION_TERMS = re.compile(
     r"\b(hi|hello|hey|namaste|good morning|good afternoon|good evening|thanks|thank you|"
     r"bye|goodbye|my name|call me|what(?:'s| is) my name|what should (?:i|you) call|"
-    r"who are you|how are you|remember|keep in mind|help)\b", re.I)
+    r"who are you|how are you|remember|keep in mind|help|concepts?|what (?:is|are|does)|tell me about)\b", re.I)
 _AMBIGUOUS_FRAGMENTS = re.compile(
     r"^\s*(?:do that|do it|that one|that|this|it|those|same|more|again|details|check|show it|show me|why|\?+|\.+)\s*$",
     re.I,
@@ -73,10 +83,31 @@ def _fill(template: str, **values: str) -> str:
     return re.sub(r"\{\{(\w+)\}\}", lambda match: str(values.get(match.group(1), "")), template)
 
 
+def _valid_confidence(value: object) -> bool:
+    return (
+        isinstance(value, (int, float))
+        and not isinstance(value, bool)
+        and math.isfinite(value)
+        and _MIN_ROUTER_CONFIDENCE <= value <= 1.0
+    )
+
+
+def _column_mentioned(question: str, columns: list[str]) -> bool:
+    for column in columns:
+        name = str(column).strip()
+        if not name:
+            continue
+        if name.casefold() in _COLUMN_IGNORED_WORDS and not re.search(rf"\bcolumn\s+{re.escape(name)}\b", question, re.I):
+            continue
+        flags = 0 if len(name) == 1 else re.I
+        if re.search(rf"(?<!\w){re.escape(name)}(?!\w)", question, flags):
+            return True
+    return False
+
+
 def _local_route(question: str, columns: list[str], has_analysis_context: bool,
                  has_chart_context: bool, router_uncertain: bool) -> dict[str, str]:
-    lowered = question.casefold()
-    if _APP_HELP_QUERY.search(question):
+    if _CONCEPT_QUERY.search(question):
         return {"route": "conversation", "reply": ""}
     if _CHART_MODIFY_TERMS.search(question):
         return {"route": "modify_chart", "reply": ""}
@@ -90,7 +121,11 @@ def _local_route(question: str, columns: list[str], has_analysis_context: bool,
         return {"route": "explain_analysis", "reply": ""}
     if has_analysis_context and _FOLLOWUP.search(question):
         return {"route": "analysis", "reply": ""}
-    if any(str(column).strip() and str(column).casefold() in lowered for column in columns) or _ANALYSIS_TERMS.search(question):
+    if _ANALYSIS_TERMS.search(question):
+        return {"route": "analysis", "reply": ""}
+    if _APP_HELP_QUERY.search(question):
+        return {"route": "conversation", "reply": ""}
+    if _column_mentioned(question, columns):
         return {"route": "analysis", "reply": ""}
     if _CONVERSATION_TERMS.search(question):
         return {"route": "conversation", "reply": ""}
@@ -124,13 +159,7 @@ def route_message(question: str, columns: list[str], conversation: str,
         decision = classify_message(input_text, instructions=_ROUTER_INSTRUCTIONS, criteria=_ROUTER_CRITERIA)
         if isinstance(decision, dict):
             choice = decision.get("choice")
-            confidence = decision.get("confidence")
-            valid_confidence = (
-                isinstance(confidence, (int, float))
-                and not isinstance(confidence, bool)
-                and confidence >= _MIN_ROUTER_CONFIDENCE
-            )
-            if choice in _VALID_ROUTES and valid_confidence:
+            if choice in _VALID_ROUTES and _valid_confidence(decision.get("confidence")):
                 return {"route": choice, "reply": ""}
         router_uncertain = True
     except response_stream.ResponseCancelled:

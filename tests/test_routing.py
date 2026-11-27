@@ -18,16 +18,28 @@ from backend.core import response_stream
 from backend.core import telemetry
 
 
+def _load_isolated_config(monkeypatch, **env):
+    import importlib.util
+    from pathlib import Path
+
+    monkeypatch.setattr("dotenv.load_dotenv", lambda *a, **kw: False)
+    for key in ("ROUTER_MODEL", "CHAT_MODEL", "MEMORY_MODEL", "MISTRAL_CHAT_MODEL"):
+        monkeypatch.delenv(key, raising=False)
+    for key, value in env.items():
+        if value is not None:
+            monkeypatch.setenv(key, value)
+    spec = importlib.util.spec_from_file_location("_isolated_router_config", Path(config.__file__))
+    module = importlib.util.module_from_spec(spec)
+    assert spec.loader is not None
+    spec.loader.exec_module(module)
+    return module
+
+
 def test_router_model_default_and_override(monkeypatch):
-    import importlib
-    assert config.ROUTER_MODEL == "gemini-decision-1"
-    monkeypatch.setenv("ROUTER_MODEL", "custom-decision-model")
-    reloaded = importlib.reload(config)
-    try:
-        assert reloaded.ROUTER_MODEL == "custom-decision-model"
-    finally:
-        monkeypatch.delenv("ROUTER_MODEL", raising=False)
-        importlib.reload(config)
+    default_cfg = _load_isolated_config(monkeypatch)
+    assert default_cfg.ROUTER_MODEL == "gemini-decision-1"
+    override_cfg = _load_isolated_config(monkeypatch, ROUTER_MODEL="custom-decision-model")
+    assert override_cfg.ROUTER_MODEL == "custom-decision-model"
 
 
 def test_decisions_api_serializes_request_and_records_zero_output_usage(monkeypatch):
@@ -137,6 +149,12 @@ def test_route_message_selects_expected_routes_and_excludes_rows(monkeypatch, qu
 @pytest.mark.parametrize("bad_decision", [
     {"choice": "unclear", "confidence": 0.95},
     {"choice": "analysis", "confidence": 0.25},
+    {"choice": "analysis", "confidence": -0.1},
+    {"choice": "analysis", "confidence": 1.05},
+    {"choice": "analysis", "confidence": float("inf")},
+    {"choice": "analysis", "confidence": float("-inf")},
+    {"choice": "analysis", "confidence": float("nan")},
+    {"choice": "analysis", "confidence": True},
     {"choice": "unknown_route", "confidence": 0.99},
     {"choice": "analysis", "confidence": None},
     "not a dict",
@@ -146,9 +164,34 @@ def test_uncertain_or_malformed_decision_falls_back_or_clarifies(monkeypatch, ba
     assert message_handler.route_message("What is total Sales?", ["Sales", "Region"], "", False)["route"] == "analysis"
     assert message_handler.route_message("Chart total Sales by Region", ["Sales", "Region"], "", False)["route"] == "visualization"
     assert message_handler.route_message("What charts can you make?", ["Sales", "Region"], "", False)["route"] == "conversation"
+    assert message_handler.route_message("Hello, my name is Mira", ["A", "B"], "", False)["route"] == "conversation"
     clarify = message_handler.route_message("do that", ["Sales", "Region"], "", False)
     assert clarify["route"] == "clarification"
     assert clarify["reply"]
+
+
+@pytest.mark.parametrize("mode", ["unavailable", "uncertain"])
+def test_local_routing_avoids_substrings_and_generic_data_and_handles_mixed_chart(monkeypatch, mode):
+    if mode == "unavailable":
+        monkeypatch.setattr(
+            message_handler,
+            "classify_message",
+            MagicMock(side_effect=llm_clients.ProviderUnavailableError("Decision 1 unavailable")),
+        )
+    else:
+        monkeypatch.setattr(
+            message_handler,
+            "classify_message",
+            lambda *a, **kw: {"choice": "unclear", "confidence": 0.9},
+        )
+
+    assert message_handler.route_message("Hello, my name is Mira", ["A", "B"], "", False)["route"] == "conversation"
+    assert message_handler.route_message("Can you help me upload my data?", ["Data", "Sales"], "", False)["route"] == "conversation"
+    assert message_handler.route_message("Is my data saved?", ["Sales", "Region"], "", False)["route"] == "conversation"
+    assert message_handler.route_message("Explain wholesale pricing concepts", ["Sales"], "", False)["route"] == "conversation"
+    assert message_handler.route_message("What can you do, and chart total Sales by Region?", ["Sales", "Region"], "", False)["route"] == "visualization"
+    assert message_handler.route_message("What is total Sales?", ["Sales", "Region"], "", False)["route"] == "analysis"
+    assert message_handler.route_message("Make it horizontal", ["Sales", "Region"], "", True, True)["route"] == "modify_chart"
 
 
 @pytest.mark.parametrize("failure", [
