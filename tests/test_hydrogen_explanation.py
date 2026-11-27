@@ -380,11 +380,18 @@ def test_web_sse_cli_and_streamlit_explain_with_hydrogen(monkeypatch, capsys):
     assert any(item.value == "Buffered explanation: Sales summed to 1000." for item in st_app.markdown)
 
 
-def test_groq_narration_still_uses_existing_mistral_fallback(monkeypatch):
+def test_groq_narration_fallback_uses_hydrogen_while_mistral_explanation_helper_remains_intact(monkeypatch):
     monkeypatch.setattr(config, "MISTRAL_API_KEY", "offline-mistral-key")
+    monkeypatch.setattr(config, "GEMINI_API_KEY", "offline-gemini-key")
     monkeypatch.setattr(config, "EXPLANATION_MODEL", "ministral-14b-latest")
+    monkeypatch.setattr(config, "GEMINI_FALLBACK_MODEL", "gemini-4-hydrogen")
     monkeypatch.setattr(llm_clients, "_groq_completion", MagicMock(side_effect=llm_clients.ProviderUnavailableError("Groq down")))
-    mistral = MagicMock(return_value="Mistral narration fallback")
+    gemini = MagicMock(return_value="Hydrogen narration fallback")
+    monkeypatch.setattr(llm_clients, "_gemini_generate", gemini)
+    assert llm_clients.call_narration_llm("computed evidence") == "Hydrogen narration fallback"
+    assert gemini.call_args.kwargs["model"] == "gemini-4-hydrogen"
+
+    mistral = MagicMock(return_value="Mistral helper")
     monkeypatch.setattr(llm_clients, "_mistral_completion", mistral)
-    assert llm_clients.call_narration_llm("computed evidence") == "Mistral narration fallback"
+    assert llm_clients.call_explanation_llm("computed evidence") == "Mistral helper"
     mistral.assert_called_once_with("computed evidence", "ministral-14b-latest")

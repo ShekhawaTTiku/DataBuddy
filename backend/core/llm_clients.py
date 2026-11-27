@@ -192,7 +192,27 @@ def _mistral_completion(prompt: str, model: str, json_mode: bool = False,
 
 
 def call_fallback_llm(prompt: str) -> str:
-    return _mistral_completion(prompt, config.FALLBACK_MODEL)
+    return _gemini_generate(
+        prompt,
+        model=config.GEMINI_FALLBACK_MODEL,
+        max_tokens=config.MAX_RESPONSE_TOKENS,
+        stream=False,
+        empty_error="Gemini returned no calculation code. Please try again later.",
+        model_setting="GEMINI_FALLBACK_MODEL",
+        missing_key_error="GEMINI_API_KEY is missing.",
+    )
+
+
+def call_narration_fallback_llm(prompt: str) -> str:
+    return _gemini_generate(
+        prompt,
+        model=config.GEMINI_FALLBACK_MODEL,
+        max_tokens=config.MAX_RESPONSE_TOKENS,
+        stream=bool(response_stream.current() and not response_stream.current().finalizing),
+        empty_error="Gemini returned no answer. Please try again later.",
+        model_setting="GEMINI_FALLBACK_MODEL",
+        missing_key_error="GEMINI_API_KEY is missing.",
+    )
 
 
 def call_conversation_llm(prompt: str) -> str:
@@ -304,17 +324,38 @@ def _groq_completion(prompt: str, temperature: float = 0.2, stream: bool = False
     return _retry(request, "Groq")
 
 
-def _failover(primary, fallback, minimum_primary_seconds: float = 0):
-    """Reserve part of the shared deadline for Mistral; never mask config errors."""
+def _failover(primary, fallback, minimum_primary_seconds: float = 0, *,
+              fallback_provider: str = "Mistral", fallback_key: str | None = None,
+              fallback_model: str | None = None, minimum_fallback_seconds: float = 0):
+    """Reserve part of the shared deadline for the call's backup provider; never mask config errors."""
+    key = config.MISTRAL_API_KEY if fallback_key is None and fallback_provider == "Mistral" else fallback_key
+    backup_ready = bool(key) and (fallback_model is None or bool(fallback_model.strip()))
     with request_budget():
         try:
             remaining = max(0, _deadline.get() - time.monotonic())
-            primary_seconds = min(remaining, max(remaining * 0.6, minimum_primary_seconds)) if config.MISTRAL_API_KEY else remaining
+            if backup_ready:
+                primary_seconds = max(remaining * 0.6, minimum_primary_seconds)
+                if minimum_fallback_seconds > 0:
+                    primary_seconds = (
+                        min(primary_seconds, remaining - minimum_fallback_seconds)
+                        if remaining > minimum_fallback_seconds
+                        else remaining
+                    )
+                primary_seconds = min(remaining, primary_seconds)
+            else:
+                primary_seconds = remaining
             with request_budget(seconds=primary_seconds):
                 return primary()
         except ProviderUnavailableError as error:
-            if not config.MISTRAL_API_KEY:
-                raise ProviderUnavailableError(f"{error} Mistral fallback is not configured.") from None
+            if not key:
+                raise ProviderUnavailableError(f"{error} {fallback_provider} fallback is not configured.") from None
+            if fallback_model is not None and not fallback_model.strip():
+                raise ProviderError(f"{fallback_provider} fallback model setting is empty.") from None
+            remaining_now = _deadline.get() - time.monotonic()
+            if remaining_now <= 0:
+                raise ProviderUnavailableError(f"{error} The request time limit was reached.") from None
+            if fallback_provider == "Gemini" and remaining_now < 10:
+                raise ProviderUnavailableError(f"{error} Too little request time remains for Gemini fallback.") from None
             telemetry.event("fallback")
             if response_stream.current() and not response_stream.current().finalizing and response_stream.current().answer:
                 response_stream.reset_answer("The explanation was interrupted. Restarting with the backup provider.")
@@ -323,14 +364,27 @@ def _failover(primary, fallback, minimum_primary_seconds: float = 0):
 
 def call_analysis_llm(prompt: str, temperature: float = 0.2) -> str:
     _validate_prompt(prompt)
-    return _failover(lambda: _groq_completion(prompt, temperature), lambda: call_fallback_llm(prompt))
+    return _failover(
+        lambda: _groq_completion(prompt, temperature),
+        lambda: call_fallback_llm(prompt),
+        fallback_provider="Gemini",
+        fallback_key=config.GEMINI_API_KEY,
+        fallback_model=config.GEMINI_FALLBACK_MODEL,
+        minimum_fallback_seconds=10.1,
+    )
 
 
 def call_narration_llm(prompt: str) -> str:
     _validate_prompt(prompt)
-    if response_stream.current():
-        return _failover(lambda: _groq_completion(prompt, stream=True), lambda: call_explanation_llm(prompt))
-    return _failover(lambda: _groq_completion(prompt), lambda: call_explanation_llm(prompt))
+    stream = bool(response_stream.current())
+    return _failover(
+        lambda: _groq_completion(prompt, stream=stream),
+        lambda: call_narration_fallback_llm(prompt),
+        fallback_provider="Gemini",
+        fallback_key=config.GEMINI_API_KEY,
+        fallback_model=config.GEMINI_FALLBACK_MODEL,
+        minimum_fallback_seconds=10.1,
+    )
 
 
 def _consume_gemini_stream(chunks, client, provider: str, model: str) -> str:
@@ -453,6 +507,13 @@ def _gemini_completion(prompt: str) -> str:
 
 def call_memory_llm(prompt: str) -> str:
     _validate_prompt(prompt)
-    return _failover(lambda: _gemini_completion(prompt), lambda: _mistral_completion(
-        prompt, config.EXPLANATION_MODEL, max_tokens=config.MAX_MEMORY_RESPONSE_TOKENS),
-        minimum_primary_seconds=10.1)
+    return _failover(
+        lambda: _gemini_completion(prompt),
+        lambda: _mistral_completion(
+            prompt, config.EXPLANATION_MODEL, max_tokens=config.MAX_MEMORY_RESPONSE_TOKENS
+        ),
+        minimum_primary_seconds=10.1,
+        fallback_provider="Mistral",
+        fallback_key=config.MISTRAL_API_KEY,
+        fallback_model=config.EXPLANATION_MODEL,
+    )

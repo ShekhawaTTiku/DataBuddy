@@ -99,7 +99,8 @@ def test_installed_mistral_sdk_serializes_stream_request_offline(monkeypatch):
 
 
 def test_midstream_fallback_replaces_text_and_records_both_attempts(monkeypatch):
-    monkeypatch.setattr(config, "MISTRAL_API_KEY", "offline-placeholder")
+    monkeypatch.setattr(config, "GEMINI_API_KEY", "offline-placeholder")
+    monkeypatch.setattr(config, "MISTRAL_API_KEY", None)
     updates, events = [], []
     def primary(*args, **kwargs):
         telemetry.event("attempt", provider="Groq")
@@ -107,17 +108,20 @@ def test_midstream_fallback_replaces_text_and_records_both_attempts(monkeypatch)
         raise llm_clients.ProviderUnavailableError("temporary outage")
     def fallback(*args, **kwargs):
         assert delivery.current().answer == ""
-        telemetry.event("attempt", provider="Mistral")
-        telemetry.record_usage(NS(usage=usage()), "Mistral", "fixture")
+        assert kwargs["model"] == config.GEMINI_FALLBACK_MODEL
+        assert kwargs["stream"] is True
+        telemetry.event("attempt", provider="Gemini")
+        telemetry.record_usage(NS(usage_metadata=NS(prompt_token_count=30, candidates_token_count=10, total_token_count=40)), "Gemini", config.GEMINI_FALLBACK_MODEL)
         delivery.text("Fresh backup answer")
         return "Fresh backup answer"
     monkeypatch.setattr(llm_clients, "_groq_completion", primary)
-    monkeypatch.setattr(llm_clients, "_mistral_completion", fallback)
+    monkeypatch.setattr(llm_clients, "_gemini_generate", fallback)
     with telemetry.observe(events), delivery.observe(lambda k, v: updates.append((k, v)), threading.Event()):
         assert llm_clients.call_narration_llm("computed evidence") == "Fresh backup answer"
     assert [k for k, _ in updates] == ["text", "reset", "text"]
     summary = telemetry.summarize(events)
     assert summary["attempts"] == 2 and summary["fallbacks"] == 1 and not summary["complete"]
+    assert summary["calls"][0]["provider"] == "Gemini" and summary["calls"][0]["model"] == config.GEMINI_FALLBACK_MODEL
 
 
 @pytest.mark.parametrize("chunks", [[], [chunk("unfinished")]])

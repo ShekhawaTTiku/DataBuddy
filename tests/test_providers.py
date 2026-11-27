@@ -82,10 +82,10 @@ def test_groq_timeout_tokens_and_no_sdk_retries(monkeypatch):
     assert fake.chat.completions.create.call_args.kwargs["max_completion_tokens"]==config.MAX_RESPONSE_TOKENS
 
 
-def test_transient_groq_failure_uses_mistral(monkeypatch):
+def test_transient_groq_failure_uses_gemini_fallback(monkeypatch):
     import groq
     monkeypatch.setattr(config,"GROQ_API_KEY","dummy")
-    monkeypatch.setattr(config,"MISTRAL_API_KEY","dummy")
+    monkeypatch.setattr(config,"GEMINI_API_KEY","dummy")
     monkeypatch.setattr(config,"PROVIDER_MAX_RETRIES",0)
     fake=MagicMock(); fake.__enter__.return_value=fake
     fake.chat.completions.create.side_effect=FakeError(503)
@@ -99,7 +99,7 @@ def test_transient_groq_failure_uses_mistral(monkeypatch):
 def test_bad_groq_key_does_not_silently_switch_provider(monkeypatch):
     import groq
     monkeypatch.setattr(config,"GROQ_API_KEY","dummy")
-    monkeypatch.setattr(config,"MISTRAL_API_KEY","dummy")
+    monkeypatch.setattr(config,"GEMINI_API_KEY","dummy")
     fake=MagicMock(); fake.__enter__.return_value=fake
     fake.chat.completions.create.side_effect=FakeError(401)
     monkeypatch.setattr(groq,"Groq",MagicMock(return_value=fake))
@@ -122,18 +122,21 @@ def test_mistral_timeout_and_retries(monkeypatch):
     assert fake.chat.complete.call_args.kwargs["max_tokens"]==config.MAX_RESPONSE_TOKENS
 
 
-def test_narration_and_code_use_their_configured_fallback_roles(monkeypatch):
-    monkeypatch.setattr(config, "MISTRAL_API_KEY", "dummy")
-    monkeypatch.setattr(config, "FALLBACK_MODEL", "configured-code-model")
-    monkeypatch.setattr(config, "EXPLANATION_MODEL", "configured-explainer")
+def test_narration_and_code_use_their_configured_gemini_fallback_roles(monkeypatch):
+    monkeypatch.setattr(config, "GEMINI_API_KEY", "dummy")
+    monkeypatch.setattr(config, "MISTRAL_API_KEY", None)
+    monkeypatch.setattr(config, "GEMINI_FALLBACK_MODEL", "configured-hydrogen-fallback")
+    monkeypatch.setattr(config, "GEMINI_EXPLANATION_MODEL", "separate-saved-explainer")
     monkeypatch.setattr(clients, "_groq_completion", MagicMock(side_effect=clients.ProviderUnavailableError("quota")))
-    mistral = MagicMock(return_value="answer")
-    monkeypatch.setattr(clients, "_mistral_completion", mistral)
+    gemini = MagicMock(return_value="answer")
+    monkeypatch.setattr(clients, "_gemini_generate", gemini)
     assert clients.call_narration_llm("evidence") == "answer"
-    mistral.assert_called_once_with("evidence", config.EXPLANATION_MODEL)
-    mistral.reset_mock()
+    assert gemini.call_args.kwargs["model"] == "configured-hydrogen-fallback"
+    assert gemini.call_args.kwargs["stream"] is False
+    gemini.reset_mock()
     assert clients.call_analysis_llm("code question") == "answer"
-    mistral.assert_called_once_with("code question", config.FALLBACK_MODEL)
+    assert gemini.call_args.kwargs["model"] == "configured-hydrogen-fallback"
+    assert gemini.call_args.kwargs["stream"] is False
 
 
 def test_gemini_sdk_options_and_no_sdk_retries(monkeypatch):

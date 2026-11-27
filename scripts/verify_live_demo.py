@@ -42,7 +42,8 @@ def main():
         "models": {"code": config.ANALYSIS_MODEL, "memory": config.MEMORY_MODEL,
                    "routing": config.ROUTER_MODEL, "chat": config.CHAT_MODEL,
                    "explanation": config.GEMINI_EXPLANATION_MODEL,
-                   "narration_fallback": config.EXPLANATION_MODEL, "code_fallback": config.FALLBACK_MODEL},
+                   "narration_fallback": config.GEMINI_FALLBACK_MODEL, "code_fallback": config.GEMINI_FALLBACK_MODEL,
+                   "memory_fallback": config.EXPLANATION_MODEL},
         "expected": {"sales": expected_sales, "profit": expected_profit, "regional_sales": expected_regions},
         "checks": [], "provider_calls": [],
     }
