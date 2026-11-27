@@ -1,6 +1,16 @@
 # Local Linux container verification
 
-Current release update: the reorganized production image built on 2026-11-05 and passed health/session/sample checks at 512 MiB/no swap/0.1 CPU, a real calculation worker and non-root/private-file checks. Hosted real-provider acceptance followed; see [current verification](WEBAPP_VERIFICATION.md). The detailed October 30 measurements below remain historical. The new full 198-test suite was exercised on Windows; it is not presented as a fresh 198-test Linux run.
+## Gemini migration release candidate — 2026-11-27 (IST)
+
+A fresh `linux/amd64` production build from the checkout at `761b930` plus the Flash-Lite reserve changes passed on Docker Engine 29.9.3 in an isolated Alpine WSL2 distro. The build pulled the base image and installed the API lockfile from scratch. The runtime passed `pip check`, ran as UID 1000 and contained neither the checkout's `.env` nor upload, example, test or frontend files.
+
+The running image used the production launcher on a custom port. With 512 MiB and 0.1 CPU confirmed in cgroup v2, it reached health HTTP 200 in 10.67 seconds, created a session (201), enforced authentication and exact-origin CORS, loaded and removed the 4 × 5 sample, and returned 1,000 from the real worker using synthetic input. It peaked at 167.38 MiB, restarted in 10.70 seconds and invalidated the previous session. No provider keys or calls were used. This WSL engine reported no Docker swap-limit support, so the run did not verify a no-swap profile. The worker's basic execution checks are not a hardened security sandbox.
+
+The existing Docker Desktop 4.97.0 launcher and backend still fail on a missing product registry key. The validation engine was isolated from its existing WSL disks. The test container was removed, and the separate `DataBuddy-Task5-Acceptance` distro and tagged image can be reused. Start `wsl -d DataBuddy-Task5-Acceptance --cd / -- dockerd --host=unix:///var/run/docker.sock` in one terminal, then run `wsl -d DataBuddy-Task5-Acceptance -- docker version` in another.
+
+## Earlier verification
+
+The reorganized production image built on 2026-11-05 and passed health/session/sample checks at 512 MiB/no swap/0.1 CPU, a real calculation worker and non-root/private-file checks. Hosted real-provider acceptance followed. See [hosted verification](WEBAPP_VERIFICATION.md). The 198-test suite for that release was exercised on Windows. The detailed October 30 measurements follow.
 
 Date: 2026-10-30 (Asia/Kolkata). The owner authorized Docker installation and local container/resource testing after enabling WSL and restarting Windows. The hosting target remains Cloudflare Pages + Render Free. No hosting account, deployment, commit or push is part of this work.
 

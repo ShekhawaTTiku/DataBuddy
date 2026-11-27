@@ -236,6 +236,7 @@ In `frontend`, run `npm test` and `npm run build`. Regression tests use fake pro
 | `CHAT_MODEL` | `gemini-3.1-flash-lite` | Answer ordinary conversation before and after dataset upload. |
 | `GEMINI_EXPLANATION_MODEL` | `gemini-4-hydrogen` | Explain the last successful saved calculation or chart. |
 | `GEMINI_FALLBACK_MODEL` | `gemini-4-hydrogen` | Fallback for Groq analysis code and result/chart narration. |
+| `GEMINI_RESERVE_MODEL` | `gemini-3.5-flash-lite` | Reserve for transient Hydrogen failures in the Groq fallback path. Set to an empty value to disable it. |
 | `MEMORY_MODEL` | `gemini-3.5-flash-lite` | Primary memory-summary model (falls back to bounded local notes). |
 | `DATABUDDY_TIMEZONE` | `Asia/Kolkata` | Time zone for local-time answers. |
 | `EXEC_TIMEOUT_SECONDS` | `5` | Calculation deadline, configurable from 1 to 30 seconds. The deployment uses 30. |

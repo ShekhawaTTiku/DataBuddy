@@ -12,6 +12,7 @@ from backend.core import telemetry
 from backend.core import response_stream
 _deadline = ContextVar("databuddy_provider_deadline", default=None)
 _DECISIONS_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/decisions"
+_GEMINI_RESERVED_SECONDS = 10.1
 
 
 class ProviderError(RuntimeError):
@@ -165,27 +166,51 @@ def _consume_stream(chunks, provider, model):
     return text.strip()
 
 
+def _gemini_reserve_enabled() -> bool:
+    reserve = config.GEMINI_RESERVE_MODEL.strip()
+    return bool(reserve) and reserve != config.GEMINI_FALLBACK_MODEL.strip()
+
+
+def _gemini_backup(prompt: str, *, stream: bool, empty_error: str) -> str:
+    def generate(model: str, setting: str) -> str:
+        return _gemini_generate(
+            prompt,
+            model=model,
+            max_tokens=config.MAX_RESPONSE_TOKENS,
+            stream=stream,
+            empty_error=empty_error,
+            model_setting=setting,
+            missing_key_error="GEMINI_API_KEY is missing.",
+        )
+
+    def primary() -> str:
+        return generate(config.GEMINI_FALLBACK_MODEL, "GEMINI_FALLBACK_MODEL")
+
+    if not _gemini_reserve_enabled():
+        return primary()
+    return _failover(
+        primary,
+        lambda: generate(config.GEMINI_RESERVE_MODEL.strip(), "GEMINI_RESERVE_MODEL"),
+        minimum_primary_seconds=_GEMINI_RESERVED_SECONDS,
+        fallback_key=config.GEMINI_API_KEY,
+        fallback_model=config.GEMINI_RESERVE_MODEL,
+        minimum_fallback_seconds=_GEMINI_RESERVED_SECONDS,
+    )
+
+
 def call_fallback_llm(prompt: str) -> str:
-    return _gemini_generate(
+    return _gemini_backup(
         prompt,
-        model=config.GEMINI_FALLBACK_MODEL,
-        max_tokens=config.MAX_RESPONSE_TOKENS,
         stream=False,
         empty_error="Gemini returned no calculation code. Please try again later.",
-        model_setting="GEMINI_FALLBACK_MODEL",
-        missing_key_error="GEMINI_API_KEY is missing.",
     )
 
 
 def call_narration_fallback_llm(prompt: str) -> str:
-    return _gemini_generate(
+    return _gemini_backup(
         prompt,
-        model=config.GEMINI_FALLBACK_MODEL,
-        max_tokens=config.MAX_RESPONSE_TOKENS,
         stream=bool(response_stream.current() and not response_stream.current().finalizing),
         empty_error="Gemini returned no answer. Please try again later.",
-        model_setting="GEMINI_FALLBACK_MODEL",
-        missing_key_error="GEMINI_API_KEY is missing.",
     )
 
 
@@ -294,8 +319,9 @@ def _groq_completion(prompt: str, temperature: float = 0.2, stream: bool = False
 
 def _failover(primary, fallback, minimum_primary_seconds: float = 0, *,
               fallback_provider: str = "Gemini", fallback_key: str | None = None,
-              fallback_model: str | None = None, minimum_fallback_seconds: float = 0):
-    """Reserve part of the shared deadline for the call's backup provider; never mask config errors."""
+              fallback_model: str | None = None, minimum_fallback_seconds: float = 0,
+              extra_fallback_seconds: float = 0):
+    """Reserve shared time for backup calls when the remaining budget permits."""
     key = config.GEMINI_API_KEY if fallback_key is None and fallback_provider == "Gemini" else fallback_key
     backup_ready = bool(key) and (fallback_model is None or bool(fallback_model.strip()))
     with request_budget():
@@ -303,18 +329,20 @@ def _failover(primary, fallback, minimum_primary_seconds: float = 0, *,
             remaining = max(0, _deadline.get() - time.monotonic())
             if backup_ready:
                 primary_seconds = max(remaining * 0.6, minimum_primary_seconds)
-                if minimum_fallback_seconds > 0:
+                reserve = minimum_fallback_seconds
+                if remaining >= max(minimum_primary_seconds, reserve) + reserve + extra_fallback_seconds:
+                    reserve += extra_fallback_seconds
+                if reserve:
                     primary_seconds = (
-                        min(primary_seconds, remaining - minimum_fallback_seconds)
-                        if remaining > minimum_fallback_seconds
-                        else remaining
+                        min(primary_seconds, remaining - reserve)
+                        if remaining > minimum_primary_seconds + reserve else remaining
                     )
-                primary_seconds = min(remaining, primary_seconds)
             else:
                 primary_seconds = remaining
             with request_budget(seconds=primary_seconds):
                 return primary()
         except ProviderUnavailableError as error:
+            response_stream.check_cancelled()
             if not key:
                 raise ProviderUnavailableError(f"{error} {fallback_provider} fallback is not configured.") from None
             if fallback_model is not None and not fallback_model.strip():
@@ -326,7 +354,7 @@ def _failover(primary, fallback, minimum_primary_seconds: float = 0, *,
                 raise ProviderUnavailableError(f"{error} Too little request time remains for Gemini fallback.") from None
             telemetry.event("fallback")
             if response_stream.current() and not response_stream.current().finalizing and response_stream.current().answer:
-                response_stream.reset_answer("The explanation was interrupted. Restarting with the backup provider.")
+                response_stream.reset_answer("The explanation was interrupted. Restarting with a backup model.")
             return fallback()
 
 
@@ -338,7 +366,8 @@ def call_analysis_llm(prompt: str, temperature: float = 0.2) -> str:
         fallback_provider="Gemini",
         fallback_key=config.GEMINI_API_KEY,
         fallback_model=config.GEMINI_FALLBACK_MODEL,
-        minimum_fallback_seconds=10.1,
+        minimum_fallback_seconds=_GEMINI_RESERVED_SECONDS,
+        extra_fallback_seconds=_GEMINI_RESERVED_SECONDS if _gemini_reserve_enabled() else 0,
     )
 
 
@@ -351,7 +380,8 @@ def call_narration_llm(prompt: str) -> str:
         fallback_provider="Gemini",
         fallback_key=config.GEMINI_API_KEY,
         fallback_model=config.GEMINI_FALLBACK_MODEL,
-        minimum_fallback_seconds=10.1,
+        minimum_fallback_seconds=_GEMINI_RESERVED_SECONDS,
+        extra_fallback_seconds=_GEMINI_RESERVED_SECONDS if _gemini_reserve_enabled() else 0,
     )
 
 

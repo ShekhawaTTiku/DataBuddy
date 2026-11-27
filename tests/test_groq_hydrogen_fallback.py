@@ -1,4 +1,4 @@
-"""Offline tests for Gemini 4 Hydrogen fallback behind Groq analysis and narration."""
+"""Offline tests for the Groq, Hydrogen and Flash-Lite fallback chain."""
 import importlib.util
 import json
 from pathlib import Path
@@ -37,7 +37,8 @@ SAMPLE_CSV = (
 
 def _load_isolated_config(monkeypatch, **env):
     monkeypatch.setattr("dotenv.load_dotenv", lambda *a, **kw: False)
-    for key in ("GEMINI_FALLBACK_MODEL", "GEMINI_EXPLANATION_MODEL", "MISTRAL_FALLBACK_MODEL", "MEMORY_MODEL"):
+    for key in ("GEMINI_FALLBACK_MODEL", "GEMINI_RESERVE_MODEL", "GEMINI_EXPLANATION_MODEL",
+                "MISTRAL_FALLBACK_MODEL", "MEMORY_MODEL"):
         monkeypatch.delenv(key, raising=False)
     for key, value in env.items():
         if value is not None:
@@ -51,8 +52,10 @@ def _load_isolated_config(monkeypatch, **env):
 
 def test_gemini_fallback_model_default_override_and_isolation(monkeypatch):
     assert "GEMINI_FALLBACK_MODEL" in streamlit_support._SECRET_KEYS
+    assert "GEMINI_RESERVE_MODEL" in streamlit_support._SECRET_KEYS
     default_cfg = _load_isolated_config(monkeypatch)
     assert default_cfg.GEMINI_FALLBACK_MODEL == "gemini-4-hydrogen"
+    assert default_cfg.GEMINI_RESERVE_MODEL == "gemini-3.5-flash-lite"
     assert default_cfg.GEMINI_EXPLANATION_MODEL == "gemini-4-hydrogen"
     assert not hasattr(default_cfg, "FALLBACK_MODEL")
     assert not hasattr(default_cfg, "MISTRAL_API_KEY")
@@ -64,9 +67,11 @@ def test_gemini_fallback_model_default_override_and_isolation(monkeypatch):
     override_cfg = _load_isolated_config(
         monkeypatch,
         GEMINI_FALLBACK_MODEL="custom-fallback-hydrogen",
+        GEMINI_RESERVE_MODEL="",
         GEMINI_EXPLANATION_MODEL="custom-explain-hydrogen",
     )
     assert override_cfg.GEMINI_FALLBACK_MODEL == "custom-fallback-hydrogen"
+    assert override_cfg.GEMINI_RESERVE_MODEL == ""
     assert override_cfg.GEMINI_EXPLANATION_MODEL == "custom-explain-hydrogen"
 
 
@@ -145,6 +150,71 @@ def test_groq_success_and_hydrogen_fallback_for_calculation_and_chart_without_mi
     assert summary["fallbacks"] == 6
 
 
+@pytest.mark.parametrize("hydrogen_status", [503, 403])
+def test_hydrogen_http_failure_uses_reserve_only_for_transient_errors(monkeypatch, hydrogen_status):
+    real_genai = genai.Client
+    monkeypatch.setattr(config, "GROQ_API_KEY", "")
+    monkeypatch.setattr(config, "GEMINI_API_KEY", "offline-gemini-key")
+    monkeypatch.setattr(config, "GEMINI_FALLBACK_MODEL", "gemini-4-hydrogen")
+    monkeypatch.setattr(config, "GEMINI_RESERVE_MODEL", "gemini-3.5-flash-lite")
+    monkeypatch.setattr(config, "PROVIDER_MAX_RETRIES", 1)
+    monkeypatch.setattr(llm_clients.time, "sleep", lambda _: None)
+    requests = []
+
+    def respond(request):
+        model, action = request.url.path.rsplit("/", 1)[-1].split(":")
+        requests.append((model, action))
+        if model == "gemini-4-hydrogen":
+            return httpx.Response(hydrogen_status, json={"error": {"code": hydrogen_status}})
+        candidates = [{"content": {"role": "model", "parts": [{"text": "result = 1000"}]},
+                       "finishReason": "STOP"}]
+        return httpx.Response(200, json={"candidates": candidates})
+
+    def mock_client(**kwargs):
+        transport = httpx.MockTransport(respond)
+        kwargs["http_options"] = kwargs["http_options"].model_copy(
+            update={"httpx_client": httpx.Client(transport=transport)},
+        )
+        return real_genai(**kwargs)
+
+    monkeypatch.setattr(genai, "Client", mock_client)
+    events = []
+    hydrogen = ("gemini-4-hydrogen", "generateContent")
+    with telemetry.observe(events):
+        if hydrogen_status == 503:
+            assert llm_clients.call_analysis_llm("Write the calculation code.") == "result = 1000"
+            assert requests == [hydrogen, hydrogen, ("gemini-3.5-flash-lite", "generateContent")]
+            assert telemetry.summarize(events)["fallbacks"] == 2
+        else:
+            with pytest.raises(llm_clients.ProviderError, match="authenticate or access"):
+                llm_clients.call_analysis_llm("Write the calculation code.")
+            assert requests == [hydrogen]
+            assert telemetry.summarize(events)["fallbacks"] == 1
+
+
+def test_interrupted_hydrogen_draft_restarts_with_reserve(monkeypatch):
+    monkeypatch.setattr(config, "GROQ_API_KEY", "")
+    monkeypatch.setattr(config, "GEMINI_API_KEY", "offline-gemini-key")
+    monkeypatch.setattr(config, "GEMINI_FALLBACK_MODEL", "gemini-4-hydrogen")
+    monkeypatch.setattr(config, "GEMINI_RESERVE_MODEL", "gemini-3.5-flash-lite")
+
+    def generate(prompt, *, model, stream, **kwargs):
+        assert stream
+        if model == "gemini-4-hydrogen":
+            delivery.text("Unfinished Hydrogen draft")
+            raise llm_clients.ProviderUnavailableError("Interrupted stream.")
+        assert model == "gemini-3.5-flash-lite"
+        delivery.text("Flash-Lite answer")
+        return "Flash-Lite answer"
+
+    monkeypatch.setattr(llm_clients, "_gemini_generate", generate)
+    events = []
+    with delivery.observe(lambda kind, payload: events.append((kind, payload)), delivery.Cancellation()) as stream:
+        assert llm_clients.call_narration_llm("Explain the result.") == "Flash-Lite answer"
+        assert stream.answer == "Flash-Lite answer"
+    assert [kind for kind, _ in events] == ["text", "reset", "text"]
+
+
 def test_interrupted_groq_narration_streams_hydrogen_without_rerunning_worker(monkeypatch):
     real_groq = groq.Groq
     real_genai = genai.Client
@@ -210,7 +280,7 @@ def test_interrupted_groq_narration_streams_hydrogen_without_rerunning_worker(mo
             time.sleep(0.01)
 
     assert worker_calls == 1
-    assert any(u.get("notice") == "The explanation was interrupted. Restarting with the backup provider." for u in updates)
+    assert any(u.get("notice") == "The explanation was interrupted. Restarting with a backup model." for u in updates)
     assert len(state["turns"]) == 1
     assert state["usage"]["used"] == 1
     assert state["turns"][0]["answer"] == "Hydrogen total is 1,000."
