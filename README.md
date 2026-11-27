@@ -232,10 +232,11 @@ In `frontend`, run `npm test` and `npm run build`. Regression tests use fake pro
 |---|---|---|
 | `GROQ_API_KEY` | User supplied | Authenticate analysis-code generation and result narration. |
 | `ANALYSIS_MODEL` | `openai/gpt-oss-120b` | Groq-hosted analysis and narration model. |
-| `GEMINI_API_KEY` | User supplied | Authenticate conversation-memory summaries. |
+| `GEMINI_API_KEY` | User supplied | Authenticate request routing, ordinary chat and conversation memory. |
+| `ROUTER_MODEL` | `gemini-decision-1` | Classify dataset-loaded requests via Google's Decisions API. |
+| `CHAT_MODEL` | `gemini-3.1-flash-lite` | Answer ordinary conversation before and after dataset upload. |
 | `MEMORY_MODEL` | `gemini-3.5-flash-lite` | Primary memory-summary model. |
-| `MISTRAL_API_KEY` | User supplied | Authenticate routing, conversation, explanation and fallback. |
-| `MISTRAL_CHAT_MODEL` | `ministral-8b-latest` | Route messages and answer ordinary conversation. |
+| `MISTRAL_API_KEY` | User supplied | Authenticate previous-analysis explanation and legacy fallbacks. |
 | `MISTRAL_EXPLANATION_MODEL` | `ministral-14b-latest` | Explain the last successful analysis. |
 | `MISTRAL_FALLBACK_MODEL` | `ministral-14b-latest` | Fallback for Groq analysis/narration and Gemini memory. |
 | `DATABUDDY_TIMEZONE` | `Asia/Kolkata` | Time zone for local-time answers. |
@@ -311,8 +312,8 @@ Generated calculations run with basic code checks, a child-process timeout and o
 | **pandas / NumPy / openpyxl** | Dataset loading, profiling and calculations |
 | **Plotly / react-plotly.js** | Interactive charts and chart exports |
 | **Groq** | Analysis-code generation and result narration |
-| **Gemini** | Primary conversation-memory summaries |
-| **Mistral** | Routing, conversation, explanations and fallback |
+| **Gemini** | Request routing (`gemini-decision-1`), ordinary chat (`gemini-3.1-flash-lite`) and primary conversation memory (`gemini-3.5-flash-lite`) |
+| **Mistral** | Explanations of previous analysis and fallback for code, narration and memory |
 | **Docker / Render** | Packaged Python backend and free API hosting |
 | **Cloudflare Pages** | Free static frontend hosting |
 | **pytest / Node test runner** | Offline backend and frontend regression checks |

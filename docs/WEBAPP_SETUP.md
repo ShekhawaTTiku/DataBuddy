@@ -4,7 +4,7 @@ Updated 2026-11-06 (Asia/Kolkata). The current public source repository is [Shek
 
 ## Chat before upload
 
-Messages without a dataset use the existing Mistral conversational model directly, with actual app capabilities, dataset availability, server time and bounded session context. They stream through the same job, cancellation, reconnect and accounting flow as dataset responses. Every submitted model-backed message counts toward the existing allowance, including greetings. Memory uses the same six-exchange cycle.
+Messages without a dataset use the configured Gemini conversational model (`CHAT_MODEL`, default `gemini-3.1-flash-lite`) directly, with actual app capabilities, dataset availability, server time and bounded session context. They stream through the same job, cancellation, reconnect and accounting flow as dataset responses. Every submitted model-backed message counts toward the existing allowance, including greetings. Memory uses the same six-exchange cycle.
 
 The first successful CSV/XLSX upload or sample selection preserves prior chat and memory. Invalid uploads preserve them too. Replacing an existing dataset, removing it or clearing chat resets the relevant conversation memory while preserving the used allowance. General chat never invokes dataset calculations while no dataset is loaded. App-help replies explain upload/sample actions, and both actions remain available after the welcome screen is replaced by chat.
 

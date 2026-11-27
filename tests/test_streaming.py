@@ -71,7 +71,7 @@ def test_mistral_stream_uses_installed_client_path_and_no_sdk_retries(monkeypatc
     monkeypatch.setattr(mistralai, "Mistral", factory, raising=False)
     observations = []
     with telemetry.observe(observations), delivery.observe(lambda *_: None, threading.Event()):
-        assert llm_clients.call_conversation_llm("hello") == "Hi"
+        assert llm_clients.call_explanation_llm("hello") == "Hi"
     assert fake.chat.stream.call_args.kwargs["retries"] is None
     assert factory.call_args.kwargs["retry_config"] is None
     assert telemetry.summarize(observations)["total"] == 40
@@ -94,7 +94,7 @@ def test_installed_mistral_sdk_serializes_stream_request_offline(monkeypatch):
     monkeypatch.setattr(mistralai.client, "Mistral", factory)
     events = []
     with telemetry.observe(events), delivery.observe(lambda *_: None, threading.Event()):
-        assert llm_clients.call_conversation_llm("hello") == "Hello"
+        assert llm_clients.call_explanation_llm("hello") == "Hello"
     assert requests[0]["stream"] is True and telemetry.summarize(events)["complete"]
 
 

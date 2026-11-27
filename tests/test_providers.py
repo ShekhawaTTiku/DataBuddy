@@ -62,8 +62,10 @@ def test_prompt_size_rejected_before_provider(monkeypatch):
 def test_missing_keys_are_clear():
     with pytest.raises(clients.ProviderError,match="fallback is not configured"):
         clients.call_analysis_llm("question")
-    with pytest.raises(clients.ProviderError,match="MISTRAL_API_KEY"):
+    with pytest.raises(clients.ProviderError,match="GEMINI_API_KEY"):
         clients.call_conversation_llm("question")
+    with pytest.raises(clients.ProviderError,match="MISTRAL_API_KEY"):
+        clients.call_explanation_llm("question")
 
 
 def test_groq_timeout_tokens_and_no_sdk_retries(monkeypatch):
@@ -113,7 +115,7 @@ def test_mistral_timeout_and_retries(monkeypatch):
     fake=MagicMock(); fake.__enter__.return_value=fake
     fake.chat.complete.return_value=SimpleNamespace(choices=[SimpleNamespace(message=SimpleNamespace(content="answer"))])
     factory=MagicMock(return_value=fake); monkeypatch.setattr(sdk,"Mistral",factory)
-    assert clients.call_conversation_llm("question")=="answer"
+    assert clients.call_explanation_llm("question")=="answer"
     assert factory.call_args.kwargs["retry_config"] is None
     assert factory.call_args.kwargs["timeout_ms"]<=config.PROVIDER_TIMEOUT_SECONDS*1000
     assert fake.chat.complete.call_args.kwargs["retries"] is None

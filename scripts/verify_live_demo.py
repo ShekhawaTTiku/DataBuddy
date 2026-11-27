@@ -40,8 +40,8 @@ def main():
         "date": "2026-10-22", "timezone": "Asia/Kolkata",
         "dataset": {"filename": path.name, "bytes": path.stat().st_size, "rows": len(df), "columns": len(df.columns)},
         "models": {"code": config.ANALYSIS_MODEL, "memory": config.MEMORY_MODEL,
-                   "routing": config.CONVERSATION_MODEL, "explanation": config.EXPLANATION_MODEL,
-                   "code_fallback": config.FALLBACK_MODEL},
+                   "routing": config.ROUTER_MODEL, "chat": config.CHAT_MODEL,
+                   "explanation": config.EXPLANATION_MODEL, "code_fallback": config.FALLBACK_MODEL},
         "expected": {"sales": expected_sales, "profit": expected_profit, "regional_sales": expected_regions},
         "checks": [], "provider_calls": [],
     }

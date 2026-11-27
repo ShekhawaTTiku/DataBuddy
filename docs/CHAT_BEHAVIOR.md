@@ -4,7 +4,7 @@ Updated 2026-11-05. DataBuddy supports model-backed conversation before loading 
 
 ## Before a dataset is loaded
 
-The existing Mistral conversation model receives the message, bounded conversation context, actual app capabilities, dataset availability and the configured server clock. This path makes no dataset-routing, code-generation or calculation call. It can greet users, respond to introductions and corrections, recall user-provided facts, explain app features and discuss general concepts.
+The Gemini conversational model (`CHAT_MODEL`, default `gemini-3.1-flash-lite`) receives the message, bounded conversation context, actual app capabilities, dataset availability and the configured server clock. This path makes no dataset-routing, code-generation or calculation call. It can greet users, respond to introductions and corrections, recall user-provided facts, explain app features and discuss general concepts.
 
 The prompt asks the model to handle the whole message. A greeting combined with a sales calculation request should invite an upload or sample. It must not invent a loaded dataset, computation or previous chart. It should distinguish a name introduction from a sentence such as “I'm having trouble uploading”, and follow later explicit name corrections. These are model-guided behaviors and can still be misinterpreted.
 

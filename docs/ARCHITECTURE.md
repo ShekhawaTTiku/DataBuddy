@@ -28,9 +28,9 @@ The following modules live in `backend/core/`; prompt templates live in `backend
 
 ## Request flow
 
-1. Conversation can start before an upload, using the existing Mistral model with current app facts, dataset availability, configured clock and bounded context. Every admitted message counts toward the allowance and memory cycle.
+1. Conversation can start before an upload, using Gemini (`CHAT_MODEL`, default `gemini-3.1-flash-lite`) with current app facts, dataset availability, configured clock and bounded context. Every admitted message counts toward the allowance and memory cycle.
 2. Upload is checked and parsed in memory. The active dataset switches only after success. First upload preserves introductory conversation; later replacement clears it. With a dataset loaded, existing local clock/remember handling remains available.
-3. Router selects analysis, chart, chart modification, conversation or explanation; malformed/unavailable routing falls back to local rules.
+3. Router (`ROUTER_MODEL`, default `gemini-decision-1` via Google's Decisions API) selects analysis, chart, chart modification, conversation, explanation or unclear; invalid/low-confidence or failing router calls fall back to local rules for clear requests or ask a brief clarification when still ambiguous.
 4. Generated code is validated and executed in a fresh bounded worker, using a copy of the session DataFrame.
 5. Successful evidence is preserved. Narration failure produces partial success; failed execution does not produce a fabricated narrative.
 6. Record the exchange once and optionally create one memory note. On the sixth exchange, briefing and merging with the five notes/old paragraph share one provider request, producing one bounded replacement paragraph. Memory has a 20-second default sub-budget within the existing overall request deadline; failures retain recent context and expose a safe notice.
