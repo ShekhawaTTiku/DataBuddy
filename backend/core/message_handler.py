@@ -47,9 +47,12 @@ _CONVERSATION_EXPLANATION_QUERY = re.compile(
     r"\b(?:why did you say|why did you answer|why do you say|why do you answer|"
     r"how did you know|how do you know)\b", re.I)
 _CONCEPT_QUERY = re.compile(
-    r"^\s*(?:what (?:is|are) (?:a |an )?(?:mean|median|average|bar chart|line chart|pie chart|histogram|scatter plot|box plot|heatmap|dashboard|chart|plot|graph)|"
-    r"what (?:charts?|plots?|graphs?|visualizations?) can you (?:make|create|draw|build)|"
-    r"how do i (?:upload|use|export|download|save|make|create))\b", re.I)
+    r"^\s*(?:"
+    r"what (?:is|are) (?:(?:a|an)\s+(?:mean|median|average|outlier|correlation|distribution|bar chart|line chart|pie chart|histogram|scatter plot|box plot|heatmap|dashboard|chart|plot|graph)\b"
+    r"|(?:mean|median|average|bar chart|line chart|pie chart|histogram|scatter plot|box plot|heatmap|dashboard)\b\s*(?=[,;?.!]|$))"
+    r"|what (?:charts?|plots?|graphs?|visualizations?) can you (?:make|create|draw|build)\b"
+    r"|how do i (?:upload|use|export|download|save)\b(?:\s+(?:a |an |the |my )?(?:data|dataset|file|csv|xlsx|chart|plot|graph|html|png)\b)?"
+    r")", re.I)
 _APP_HELP_QUERY = re.compile(
     r"\b(can you help me (?:upload|use|export|download|remove|reset)|"
     r"upload (?:my |a )?(?:data|dataset|file|csv|xlsx)|"
@@ -107,7 +110,18 @@ def _column_mentioned(question: str, columns: list[str]) -> bool:
 
 def _local_route(question: str, columns: list[str], has_analysis_context: bool,
                  has_chart_context: bool, router_uncertain: bool) -> dict[str, str]:
-    if _CONCEPT_QUERY.search(question):
+    concept_match = _CONCEPT_QUERY.match(question)
+    if concept_match:
+        remainder = _CONCEPT_QUERY.sub("", question, count=1).lstrip(" ,;?.!").strip()
+        remainder = re.sub(r"^(?:and|also)\b\s*", "", remainder, flags=re.I)
+        if remainder and len(remainder) < len(question) and (
+            _CHART_MODIFY_TERMS.search(remainder)
+            or _VISUALIZATION_TERMS.search(remainder)
+            or _EXPLANATION_QUERY.search(remainder)
+            or _ANALYSIS_TERMS.search(remainder)
+            or _column_mentioned(remainder, columns)
+        ):
+            return _local_route(remainder, columns, has_analysis_context, has_chart_context, router_uncertain=False)
         return {"route": "conversation", "reply": ""}
     if _CHART_MODIFY_TERMS.search(question):
         return {"route": "modify_chart", "reply": ""}

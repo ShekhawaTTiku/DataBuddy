@@ -190,6 +190,10 @@ def test_local_routing_avoids_substrings_and_generic_data_and_handles_mixed_char
     assert message_handler.route_message("Is my data saved?", ["Sales", "Region"], "", False)["route"] == "conversation"
     assert message_handler.route_message("Explain wholesale pricing concepts", ["Sales"], "", False)["route"] == "conversation"
     assert message_handler.route_message("What can you do, and chart total Sales by Region?", ["Sales", "Region"], "", False)["route"] == "visualization"
+    assert message_handler.route_message("What is average Sales?", ["Sales", "Region"], "", False)["route"] == "analysis"
+    assert message_handler.route_message("What is a bar chart, and make a bar chart of Sales by Region?", ["Sales", "Region"], "", False)["route"] == "visualization"
+    assert message_handler.route_message("What is a bar chart?", ["Sales", "Region"], "", False)["route"] == "conversation"
+    assert message_handler.route_message("What is a bar chart used for?", ["Sales", "Region"], "", False)["route"] == "conversation"
     assert message_handler.route_message("What is total Sales?", ["Sales", "Region"], "", False)["route"] == "analysis"
     assert message_handler.route_message("Make it horizontal", ["Sales", "Region"], "", True, True)["route"] == "modify_chart"
 
