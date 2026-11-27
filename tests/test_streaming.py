@@ -58,49 +58,8 @@ def test_installed_groq_sdk_stream_serialization_and_final_usage(monkeypatch):
     assert totals["limits"][0]["values"]["x-ratelimit-remaining-tokens"] == "400"
 
 
-def test_mistral_stream_uses_installed_client_path_and_no_sdk_retries(monkeypatch):
-    import mistralai.client
-    monkeypatch.setattr(config, "MISTRAL_API_KEY", "offline-placeholder")
-    fake = MagicMock()
-    fake.__enter__.return_value = fake
-    fake.chat.stream.return_value = iter([NS(data=chunk("Hi")), NS(data=chunk(finish="stop", usage=usage()))])
-    factory = MagicMock(return_value=fake)
-    monkeypatch.setattr(mistralai.client, "Mistral", factory)
-    # Both import layouts remain supported by the application.
-    import mistralai
-    monkeypatch.setattr(mistralai, "Mistral", factory, raising=False)
-    observations = []
-    with telemetry.observe(observations), delivery.observe(lambda *_: None, threading.Event()):
-        assert llm_clients.call_explanation_llm("hello") == "Hi"
-    assert fake.chat.stream.call_args.kwargs["retries"] is None
-    assert factory.call_args.kwargs["retry_config"] is None
-    assert telemetry.summarize(observations)["total"] == 40
-
-
-def test_installed_mistral_sdk_serializes_stream_request_offline(monkeypatch):
-    import mistralai
-    import mistralai.client
-    real = mistralai.client.Mistral
-    monkeypatch.setattr(config, "MISTRAL_API_KEY", "offline-placeholder")
-    requests = []
-    def respond(request):
-        requests.append(json.loads(request.content))
-        payload = {"id": "offline", "model": "fixture", "choices": [{"index": 0, "delta": {"content": "Hello"}, "finish_reason": "stop"}],
-                   "usage": {"prompt_tokens": 30, "completion_tokens": 10, "total_tokens": 40}}
-        return httpx.Response(200, headers={"content-type": "text/event-stream"}, content="data: " + json.dumps(payload) + "\n\ndata: [DONE]\n\n")
-    def factory(**kwargs):
-        return real(**kwargs, client=httpx.Client(transport=httpx.MockTransport(respond)))
-    monkeypatch.setattr(mistralai, "Mistral", factory, raising=False)
-    monkeypatch.setattr(mistralai.client, "Mistral", factory)
-    events = []
-    with telemetry.observe(events), delivery.observe(lambda *_: None, threading.Event()):
-        assert llm_clients.call_explanation_llm("hello") == "Hello"
-    assert requests[0]["stream"] is True and telemetry.summarize(events)["complete"]
-
-
 def test_midstream_fallback_replaces_text_and_records_both_attempts(monkeypatch):
     monkeypatch.setattr(config, "GEMINI_API_KEY", "offline-placeholder")
-    monkeypatch.setattr(config, "MISTRAL_API_KEY", None)
     updates, events = [], []
     def primary(*args, **kwargs):
         telemetry.event("attempt", provider="Groq")

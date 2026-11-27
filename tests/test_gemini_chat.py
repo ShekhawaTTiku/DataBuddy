@@ -274,7 +274,6 @@ def test_cli_and_streamlit_produce_complete_ordinary_chat_with_gemini_only(monke
 
     monkeypatch.setattr(config, "GEMINI_API_KEY", "offline-gemini-key")
     monkeypatch.setattr(config, "GROQ_API_KEY", None)
-    monkeypatch.setattr(config, "MISTRAL_API_KEY", None)
     monkeypatch.setattr(message_handler, "classify_message", lambda *a, **kw: {"choice": "conversation", "confidence": 0.95})
     monkeypatch.setattr(conversation_state, "call_memory_llm", lambda *_: "Brief note.")
 

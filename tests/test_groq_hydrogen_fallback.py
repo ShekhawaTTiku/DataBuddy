@@ -54,7 +54,12 @@ def test_gemini_fallback_model_default_override_and_isolation(monkeypatch):
     default_cfg = _load_isolated_config(monkeypatch)
     assert default_cfg.GEMINI_FALLBACK_MODEL == "gemini-4-hydrogen"
     assert default_cfg.GEMINI_EXPLANATION_MODEL == "gemini-4-hydrogen"
-    assert default_cfg.FALLBACK_MODEL == "ministral-14b-latest"
+    assert not hasattr(default_cfg, "FALLBACK_MODEL")
+    assert not hasattr(default_cfg, "MISTRAL_API_KEY")
+
+    mistral_env_cfg = _load_isolated_config(monkeypatch, MISTRAL_FALLBACK_MODEL="ministral-14b-latest")
+    assert mistral_env_cfg.GEMINI_FALLBACK_MODEL == "gemini-4-hydrogen"
+    assert not hasattr(mistral_env_cfg, "FALLBACK_MODEL")
 
     override_cfg = _load_isolated_config(
         monkeypatch,
@@ -70,7 +75,6 @@ def test_groq_success_and_hydrogen_fallback_for_calculation_and_chart_without_mi
     real_genai = genai.Client
     monkeypatch.setattr(config, "GROQ_API_KEY", "offline-groq-key")
     monkeypatch.setattr(config, "GEMINI_API_KEY", "offline-gemini-key")
-    monkeypatch.setattr(config, "MISTRAL_API_KEY", None)
     monkeypatch.setattr(config, "PROVIDER_MAX_RETRIES", 0)
     monkeypatch.setattr(message_handler, "classify_message", lambda *a, **k: {
         "choice": "visualization" if "Chart" in a[0] else ("modify_chart" if "title" in a[0].lower() else "analysis"),
@@ -146,7 +150,6 @@ def test_interrupted_groq_narration_streams_hydrogen_without_rerunning_worker(mo
     real_genai = genai.Client
     monkeypatch.setattr(config, "GROQ_API_KEY", "offline-groq-key")
     monkeypatch.setattr(config, "GEMINI_API_KEY", "offline-gemini-key")
-    monkeypatch.setattr(config, "MISTRAL_API_KEY", None)
     monkeypatch.setattr(config, "PROVIDER_MAX_RETRIES", 0)
     monkeypatch.setattr(message_handler, "classify_message", lambda *a, **k: {"choice": "analysis", "confidence": 0.96})
     monkeypatch.setattr(conversation_state, "call_memory_llm", lambda *_: "Total Sales 1000.")
@@ -284,7 +287,6 @@ def test_missing_backup_key_and_expired_or_short_budget_do_not_claim_fallback(mo
 def test_narration_fallback_propagates_cancellation(monkeypatch):
     monkeypatch.setattr(config, "GROQ_API_KEY", "offline-groq-key")
     monkeypatch.setattr(config, "GEMINI_API_KEY", "offline-gemini-key")
-    monkeypatch.setattr(config, "MISTRAL_API_KEY", None)
     monkeypatch.setattr(config, "PROVIDER_MAX_RETRIES", 0)
 
     token = delivery.Cancellation()
@@ -307,7 +309,6 @@ def test_cli_and_streamlit_receive_buffered_hydrogen_fallback(monkeypatch, capsy
 
     monkeypatch.setattr(config, "GROQ_API_KEY", "offline-groq-key")
     monkeypatch.setattr(config, "GEMINI_API_KEY", "offline-gemini-key")
-    monkeypatch.setattr(config, "MISTRAL_API_KEY", None)
     monkeypatch.setattr(config, "PROVIDER_MAX_RETRIES", 0)
     monkeypatch.setattr(message_handler, "classify_message", lambda *a, **k: {"choice": "analysis", "confidence": 0.96})
     monkeypatch.setattr(conversation_state, "call_memory_llm", lambda *_: "Note.")
@@ -342,7 +343,6 @@ def test_cli_and_streamlit_receive_buffered_hydrogen_fallback(monkeypatch, capsy
 
 def test_saved_explanation_and_memory_paths_remain_intact(monkeypatch):
     monkeypatch.setattr(config, "GEMINI_API_KEY", "offline-gemini-key")
-    monkeypatch.setattr(config, "MISTRAL_API_KEY", "offline-mistral-key")
     monkeypatch.setattr(config, "GEMINI_EXPLANATION_MODEL", "saved-hydrogen")
     monkeypatch.setattr(config, "MEMORY_MODEL", "gemini-3.5-flash-lite")
 
@@ -353,9 +353,11 @@ def test_saved_explanation_and_memory_paths_remain_intact(monkeypatch):
 
     # Memory falls back to local ConversationState notes without calling Mistral.
     gemini_fail = MagicMock(side_effect=llm_clients.ProviderUnavailableError("Gemini memory down"))
-    mistral = MagicMock(side_effect=AssertionError("Mistral fallback must not be called"))
     monkeypatch.setattr(llm_clients, "_gemini_completion", gemini_fail)
-    monkeypatch.setattr(llm_clients, "_mistral_completion", mistral)
     with pytest.raises(llm_clients.ProviderUnavailableError, match="Gemini memory down"):
         llm_clients.call_memory_llm("exchange")
-    mistral.assert_not_called()
+    state = conversation_state.ConversationState()
+    state.update_memory("q", "a")
+    assert len(state.memory_notes) == 1
+    assert "[success; uncompressed]" in state.memory_notes[0]
+    assert state.memory_notice and "Gemini memory down" in state.memory_notice

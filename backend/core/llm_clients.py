@@ -38,7 +38,7 @@ def request_budget(seconds: float | None = None):
 
 
 def _status(exc: Exception):
-    # Google Gen AI uses .code; Groq/Mistral use .status_code; httpx uses .response.status_code.
+    # Google Gen AI uses .code; Groq uses .status_code; httpx uses .response.status_code.
     response = getattr(exc, "response", None)
     return getattr(exc, "status_code", None) or getattr(exc, "code", None) or getattr(response, "status_code", None)
 
@@ -165,32 +165,6 @@ def _consume_stream(chunks, provider, model):
     return text.strip()
 
 
-def _mistral_completion(prompt: str, model: str, json_mode: bool = False,
-                        max_tokens: int | None = None, stream: bool = False) -> str:
-    _validate_prompt(prompt)
-    if not config.MISTRAL_API_KEY:
-        raise ProviderUnavailableError("MISTRAL_API_KEY is missing. Configure it to use explanation and provider fallback.")
-    if not model.strip():
-        raise ProviderError("The Mistral model setting is empty. Set a model available to your account.")
-    try:
-        from mistralai import Mistral
-    except ImportError:
-        # SDK 2.10.1 exposes Mistral here; keep compatibility with both layouts.
-        from mistralai.client import Mistral
-
-    def request(timeout):
-        with Mistral(api_key=config.MISTRAL_API_KEY, timeout_ms=max(1, int(timeout * 1000)), retry_config=None) as client, response_stream.connection(client):
-            options = dict(model=model, messages=[{"role": "user", "content": prompt}], max_tokens=max_tokens or config.MAX_RESPONSE_TOKENS, temperature=0.2, retries=None)
-            if json_mode:
-                options["response_format"] = {"type": "json_object"}
-            if stream:
-                return _consume_stream(client.chat.stream(**options), "Mistral", model)
-            response = client.chat.complete(**options)
-            telemetry.record_usage(response, "Mistral", model)
-            return _text_content(response.choices[0].message.content).strip()
-    return _retry(request, "Mistral")
-
-
 def call_fallback_llm(prompt: str) -> str:
     return _gemini_generate(
         prompt,
@@ -225,12 +199,6 @@ def call_conversation_llm(prompt: str) -> str:
         model_setting="CHAT_MODEL",
         missing_key_error="GEMINI_API_KEY is missing. Configure it to use chat and routing.",
     )
-
-
-def call_explanation_llm(prompt: str) -> str:
-    if response_stream.current() and not response_stream.current().finalizing:
-        return _mistral_completion(prompt, config.EXPLANATION_MODEL, stream=True)
-    return _mistral_completion(prompt, config.EXPLANATION_MODEL)
 
 
 def call_saved_explanation_llm(prompt: str) -> str:
@@ -325,10 +293,10 @@ def _groq_completion(prompt: str, temperature: float = 0.2, stream: bool = False
 
 
 def _failover(primary, fallback, minimum_primary_seconds: float = 0, *,
-              fallback_provider: str = "Mistral", fallback_key: str | None = None,
+              fallback_provider: str = "Gemini", fallback_key: str | None = None,
               fallback_model: str | None = None, minimum_fallback_seconds: float = 0):
     """Reserve part of the shared deadline for the call's backup provider; never mask config errors."""
-    key = config.MISTRAL_API_KEY if fallback_key is None and fallback_provider == "Mistral" else fallback_key
+    key = config.GEMINI_API_KEY if fallback_key is None and fallback_provider == "Gemini" else fallback_key
     backup_ready = bool(key) and (fallback_model is None or bool(fallback_model.strip()))
     with request_budget():
         try:

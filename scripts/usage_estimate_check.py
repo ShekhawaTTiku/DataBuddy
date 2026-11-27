@@ -17,7 +17,7 @@ from backend.api.main import SAMPLE
 
 
 def main():
-    config.GROQ_API_KEY = config.MISTRAL_API_KEY = config.GEMINI_API_KEY = None
+    config.GROQ_API_KEY = config.GEMINI_API_KEY = None
     config.ENABLE_VISUALIZATION_SUGGESTIONS = False
     calls = []
     def fake(role, answer, cap):

@@ -195,10 +195,7 @@ def test_ask_uses_local_memory_fallback_across_gemini_failures(monkeypatch, fail
     from google.genai.errors import APIError
     from backend.core import llm_clients, telemetry
 
-    monkeypatch.setattr(config, "MISTRAL_API_KEY", "dummy")
     monkeypatch.setattr(config, "PROVIDER_MAX_RETRIES", 0)
-    mistral = MagicMock(side_effect=AssertionError("Mistral fallback must not be called"))
-    monkeypatch.setattr(llm_clients, "_mistral_completion", mistral)
 
     fake = MagicMock()
     fake.__enter__.return_value = fake
@@ -248,7 +245,6 @@ def test_ask_uses_local_memory_fallback_across_gemini_failures(monkeypatch, fail
     assert "What is total sales?" in buddy.conversation.memory_notes[0]
     assert result.memory_notice and "limited recent context" in result.memory_notice
     assert "PRIVATE" not in result.memory_notice
-    mistral.assert_not_called()
     summary = telemetry.summarize(events)
     assert summary["fallbacks"] == 0
     expected_attempts = 0 if failure_kind == "missing_key" else 1
@@ -260,7 +256,6 @@ def test_chart_result_survives_memory_outage(monkeypatch):
     from google.genai.errors import APIError
 
     monkeypatch.setattr(config, "GEMINI_API_KEY", "dummy")
-    monkeypatch.setattr(config, "MISTRAL_API_KEY", "dummy")
     monkeypatch.setattr(config, "PROVIDER_MAX_RETRIES", 0)
     fake = MagicMock()
     fake.__enter__.return_value = fake
@@ -303,10 +298,7 @@ def test_real_gemini_memory_rollover_failure_and_recovery(monkeypatch):
     from backend.core import llm_clients, telemetry
 
     monkeypatch.setattr(config, "GEMINI_API_KEY", "dummy")
-    monkeypatch.setattr(config, "MISTRAL_API_KEY", "dummy")
     monkeypatch.setattr(config, "PROVIDER_MAX_RETRIES", 0)
-    mistral = MagicMock(side_effect=AssertionError("Mistral fallback must not be called"))
-    monkeypatch.setattr(llm_clients, "_mistral_completion", mistral)
 
     call_number = 0
 
@@ -355,7 +347,6 @@ def test_real_gemini_memory_rollover_failure_and_recovery(monkeypatch):
         assert state.memory_notes == []
         assert state.memory_notice is None
 
-    mistral.assert_not_called()
     summary = telemetry.summarize(events)
     assert summary["attempts"] == 7
     assert summary["fallbacks"] == 0

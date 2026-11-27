@@ -83,10 +83,10 @@ def test_print_limit(frame):
     assert 'Printed output' in result.error
 
 def test_worker_environment_has_no_app_credentials(tmp_path):
-    with patch.dict(os.environ, {'GROQ_API_KEY':'secret-sentinel', 'MISTRAL_API_KEY':'secret-sentinel',
+    with patch.dict(os.environ, {'GROQ_API_KEY':'secret-sentinel', 'GEMINI_API_KEY':'secret-sentinel',
                                  'DATABASE_URL':'secret-sentinel', 'PYTHONPATH':'private-directory'}):
         env = executor._worker_environment(str(tmp_path))
-    assert not {'GROQ_API_KEY','MISTRAL_API_KEY','DATABASE_URL','PYTHONPATH'} & env.keys()
+    assert not {'GROQ_API_KEY','GEMINI_API_KEY','DATABASE_URL','PYTHONPATH'} & env.keys()
     assert env['HOME'] == str(tmp_path)
     assert env['TEMP'] == str(tmp_path)
 

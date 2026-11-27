@@ -17,7 +17,7 @@ from backend.core import telemetry
 from backend.core import response_stream
 from backend.core.llm_clients import ProviderUnavailableError
 
-config.GROQ_API_KEY = config.GEMINI_API_KEY = config.MISTRAL_API_KEY = None
+config.GROQ_API_KEY = config.GEMINI_API_KEY = None
 os.environ['DATABUDDY_ORIGINS'] = 'http://localhost:5173,http://127.0.0.1:5173,http://127.0.0.1:4173,http://127.0.0.1:5174,http://127.0.0.1:4174'
 config.EXEC_TIMEOUT_SECONDS = 20
 from backend.core import executor
@@ -35,7 +35,7 @@ def usage(provider='Groq', total=5000):
     telemetry.record_usage(response, provider, 'offline-browser-fixture')
 
 def route(question, **kwargs):
-    usage('Mistral'); time.sleep(.3)
+    usage('Gemini'); time.sleep(.3)
     if 'provider failure' in question.lower():
         raise ProviderUnavailableError('The provider is unavailable. Try again later.')
     if any(word in question.lower() for word in ['hello', 'name', 'remember']):
@@ -82,7 +82,7 @@ def answer(profile, question, code, execution, **kwargs):
         time.sleep(.8)
         response_stream.reset_answer('The explanation was interrupted. Restarting with the backup provider.')
         telemetry.event('fallback')
-        usage('Mistral')
+        usage('Gemini')
         return incremental('Backup explanation: the computed total is **' + execution.result_text + '**.')
     if 'markdown' in question.lower():
         return incremental(("## Synthetic formatting check\n\n" +
@@ -110,7 +110,7 @@ analyst.generate_chart_code = chart
 analyst.write_answer = answer
 analyst.write_chart_insight = insight
 def conversation(question, context, **kwargs):
-    usage('Mistral')
+    usage('Gemini')
     if 'provider failure' in question.lower():
         raise ProviderUnavailableError('The provider is unavailable. Try again later.')
     if 'name' in question.lower() and 'Mira' in context:

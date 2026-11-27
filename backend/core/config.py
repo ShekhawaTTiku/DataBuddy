@@ -18,7 +18,6 @@ def _integer(name: str, default: int, minimum: int, maximum: int) -> int:
 
 
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
-MISTRAL_API_KEY = os.getenv("MISTRAL_API_KEY")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 MEMORY_MODEL = os.getenv("MEMORY_MODEL", "gemini-3.5-flash-lite")
 ROUTER_MODEL = os.getenv("ROUTER_MODEL", "gemini-decision-1")
@@ -26,8 +25,6 @@ CHAT_MODEL = os.getenv("CHAT_MODEL", "gemini-3.1-flash-lite")
 GEMINI_EXPLANATION_MODEL = os.getenv("GEMINI_EXPLANATION_MODEL", "gemini-4-hydrogen")
 GEMINI_FALLBACK_MODEL = os.getenv("GEMINI_FALLBACK_MODEL", "gemini-4-hydrogen")
 ANALYSIS_MODEL = os.getenv("ANALYSIS_MODEL", "openai/gpt-oss-120b")
-EXPLANATION_MODEL = os.getenv("MISTRAL_EXPLANATION_MODEL", "ministral-14b-latest")
-FALLBACK_MODEL = os.getenv("MISTRAL_FALLBACK_MODEL", "ministral-14b-latest")
 TIMEZONE = os.getenv("DATABUDDY_TIMEZONE", "Asia/Kolkata")
 DEBUG = os.getenv("DEBUG", "false").lower() in ("1", "true", "yes", "on")
 ENABLE_VISUALIZATION_SUGGESTIONS = os.getenv("ENABLE_VISUALIZATION_SUGGESTIONS", "false").lower() in ("1", "true", "yes", "on")

@@ -49,15 +49,15 @@ def _load_isolated_config(monkeypatch, **env):
     return module
 
 
-def test_gemini_explanation_model_default_override_and_legacy_support(monkeypatch):
+def test_gemini_explanation_model_default_override_and_isolation(monkeypatch):
     assert "GEMINI_EXPLANATION_MODEL" in streamlit_support._SECRET_KEYS
     default_cfg = _load_isolated_config(monkeypatch)
     assert default_cfg.GEMINI_EXPLANATION_MODEL == "gemini-4-hydrogen"
-    assert default_cfg.EXPLANATION_MODEL == "ministral-14b-latest"
+    assert not hasattr(default_cfg, "EXPLANATION_MODEL")
 
-    mistral_only_cfg = _load_isolated_config(monkeypatch, MISTRAL_EXPLANATION_MODEL="custom-mistral-exp")
-    assert mistral_only_cfg.GEMINI_EXPLANATION_MODEL == "gemini-4-hydrogen"
-    assert mistral_only_cfg.EXPLANATION_MODEL == "custom-mistral-exp"
+    mistral_env_cfg = _load_isolated_config(monkeypatch, MISTRAL_EXPLANATION_MODEL="custom-mistral-exp")
+    assert mistral_env_cfg.GEMINI_EXPLANATION_MODEL == "gemini-4-hydrogen"
+    assert not hasattr(mistral_env_cfg, "EXPLANATION_MODEL")
 
     override_cfg = _load_isolated_config(monkeypatch, GEMINI_EXPLANATION_MODEL="custom-hydrogen")
     assert override_cfg.GEMINI_EXPLANATION_MODEL == "custom-hydrogen"
@@ -134,7 +134,6 @@ def test_saved_calculation_followup_calls_hydrogen_without_code_or_worker(monkey
     monkeypatch.setattr(analyst, "generate_code", lambda *a, **k: pytest.fail("Explain must not generate code"))
     monkeypatch.setattr(analyst, "generate_chart_code", lambda *a, **k: pytest.fail("Explain must not generate chart code"))
     monkeypatch.setattr(executor, "run_code", lambda *a, **k: pytest.fail("Explain must not execute Python"))
-    monkeypatch.setattr(message_handler, "call_explanation_llm", lambda *a, **k: pytest.fail("Saved explanation must not call Mistral"))
 
     fake = MagicMock()
     fake.__enter__.return_value = fake
@@ -292,7 +291,6 @@ def test_web_sse_cli_and_streamlit_explain_with_hydrogen(monkeypatch, capsys):
 
     monkeypatch.setattr(config, "GEMINI_API_KEY", "offline-gemini-key")
     monkeypatch.setattr(config, "GROQ_API_KEY", None)
-    monkeypatch.setattr(config, "MISTRAL_API_KEY", None)
     monkeypatch.setattr(conversation_state, "call_memory_llm", lambda *_: "Explained saved total.")
 
     fake = MagicMock()
@@ -380,18 +378,13 @@ def test_web_sse_cli_and_streamlit_explain_with_hydrogen(monkeypatch, capsys):
     assert any(item.value == "Buffered explanation: Sales summed to 1000." for item in st_app.markdown)
 
 
-def test_groq_narration_fallback_uses_hydrogen_while_mistral_explanation_helper_remains_intact(monkeypatch):
-    monkeypatch.setattr(config, "MISTRAL_API_KEY", "offline-mistral-key")
+def test_groq_narration_fallback_uses_hydrogen_without_mistral_settings(monkeypatch):
     monkeypatch.setattr(config, "GEMINI_API_KEY", "offline-gemini-key")
-    monkeypatch.setattr(config, "EXPLANATION_MODEL", "ministral-14b-latest")
     monkeypatch.setattr(config, "GEMINI_FALLBACK_MODEL", "gemini-4-hydrogen")
     monkeypatch.setattr(llm_clients, "_groq_completion", MagicMock(side_effect=llm_clients.ProviderUnavailableError("Groq down")))
     gemini = MagicMock(return_value="Hydrogen narration fallback")
     monkeypatch.setattr(llm_clients, "_gemini_generate", gemini)
     assert llm_clients.call_narration_llm("computed evidence") == "Hydrogen narration fallback"
     assert gemini.call_args.kwargs["model"] == "gemini-4-hydrogen"
-
-    mistral = MagicMock(return_value="Mistral helper")
-    monkeypatch.setattr(llm_clients, "_mistral_completion", mistral)
-    assert llm_clients.call_explanation_llm("computed evidence") == "Mistral helper"
-    mistral.assert_called_once_with("computed evidence", "ministral-14b-latest")
+    assert not hasattr(config, "EXPLANATION_MODEL")
+    assert not hasattr(llm_clients, "call_explanation_llm")

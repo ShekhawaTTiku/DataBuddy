@@ -11,8 +11,6 @@ services:
         sync: false
       - key: GEMINI_API_KEY
         sync: false
-      - key: MISTRAL_API_KEY
-        sync: false
       - key: EXEC_TIMEOUT_SECONDS
         value: "30"
       - key: DEBUG

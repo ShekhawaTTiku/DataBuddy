@@ -1230,7 +1230,7 @@ export default function App() {
                 Data and chat stay in temporary server memory. Inactive sessions
                 expire after 30 minutes; server restarts also clear them.
                 Relevant dataset samples, summaries and questions are sent to
-                Groq, Google Gemini and Mistral.
+                Groq and Google Gemini.
               </p>
               <p>
                 Use non-sensitive demo data. Basic execution checks are not a

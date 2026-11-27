@@ -9,7 +9,6 @@ from backend.core import config
 from backend.core import response_stream
 from backend.core.llm_clients import (
     call_conversation_llm,
-    call_explanation_llm,
     call_saved_explanation_llm,
     classify_message,
 )

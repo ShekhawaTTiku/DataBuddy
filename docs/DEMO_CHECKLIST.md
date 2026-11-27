@@ -29,7 +29,7 @@ Use examples/demo_sales.csv, a synthetic four-row dataset containing no private 
 
 ## Failure checks
 
-Automated tests cover narration outages preserving results, provider quota/authentication errors, rejected file/network code, timeouts, output limits and rejected uploads not being reparsed. Memory tests cover six-note rollover, old-paragraph merging, Mistral fallback, bounded repeated failures, session reset and safe UI/CLI notices. Do not intentionally burn free API quota to test failures; use the offline suite.
+Automated tests cover narration outages preserving results, provider quota/authentication errors, rejected file/network code, timeouts, output limits and rejected uploads not being reparsed. Memory tests cover six-note rollover, old-paragraph merging, local uncompressed fallback notes, bounded repeated failures, session reset and safe UI/CLI notices. Do not intentionally burn free API quota to test failures; use the offline suite.
 
 For a live memory check with available free quota: complete six exchanges, inspect `/state` in the CLI (the older paragraph should exist), then complete six more and confirm it is replaced by a merged paragraph. Confirm specific corrections and preferences survive; do not treat remembered numbers as a replacement for a fresh calculation. Reset and confirm the paragraph/notes disappear. The owner-authorized Superstore run completed this acceptance check on 2026-10-22; see [LIVE_VERIFICATION.md](LIVE_VERIFICATION.md). Automated pytest tests remain offline.
 
