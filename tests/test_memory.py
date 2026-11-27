@@ -186,3 +186,177 @@ def test_global_deadline_prevents_memory_network_requests(monkeypatch):
     finally:
         llm_clients._deadline.reset(token)
     factory.assert_not_called()
+
+
+@pytest.mark.parametrize("failure_kind", ["missing_key", "timeout", "quota", "empty"])
+def test_ask_uses_local_memory_fallback_across_gemini_failures(monkeypatch, failure_kind):
+    from types import SimpleNamespace
+    from google import genai
+    from google.genai.errors import APIError
+    from backend.core import llm_clients, telemetry
+
+    monkeypatch.setattr(config, "MISTRAL_API_KEY", "dummy")
+    monkeypatch.setattr(config, "PROVIDER_MAX_RETRIES", 0)
+    mistral = MagicMock(side_effect=AssertionError("Mistral fallback must not be called"))
+    monkeypatch.setattr(llm_clients, "_mistral_completion", mistral)
+
+    fake = MagicMock()
+    fake.__enter__.return_value = fake
+    factory = MagicMock(return_value=fake)
+    monkeypatch.setattr(genai, "Client", factory)
+
+    if failure_kind == "missing_key":
+        monkeypatch.setattr(config, "GEMINI_API_KEY", None)
+    else:
+        monkeypatch.setattr(config, "GEMINI_API_KEY", "dummy")
+        if failure_kind == "timeout":
+            fake.models.generate_content.side_effect = TimeoutError("PRIVATE timeout detail")
+        elif failure_kind == "quota":
+            fake.models.generate_content.side_effect = APIError(
+                429, {"error": {"message": "PRIVATE QUOTA BODY", "code": 429}}
+            )
+        else:
+            fake.models.generate_content.return_value = SimpleNamespace(text="   ")
+
+    monkeypatch.setattr(
+        databuddy.message_handler,
+        "route_message",
+        lambda **_: {"route": "analysis", "reply": ""},
+    )
+    monkeypatch.setattr(databuddy.analyst, "generate_code", lambda *a, **k: "result = 42")
+    monkeypatch.setattr(
+        databuddy.executor,
+        "run_code",
+        lambda *a: databuddy.executor.ExecutionResult(True, "42", None),
+    )
+    monkeypatch.setattr(databuddy.analyst, "write_answer", lambda *a, **k: "Sales total is 42.")
+
+    buddy = databuddy.DataBuddy(b"sales\n42\n", filename="demo.csv")
+    buddy.conversation.memory_summary = "Prior verified summary."
+
+    events = []
+    with telemetry.observe(events):
+        result = buddy.ask("What is total sales?")
+
+    assert result.status == "success"
+    assert result.answer == "Sales total is 42."
+    assert result.result_text == "42"
+    assert buddy.conversation.memory_summary == "Prior verified summary."
+    assert buddy.conversation.last_analysis["result"] == "42"
+    assert len(buddy.conversation.memory_notes) == 1
+    assert "[success; uncompressed]" in buddy.conversation.memory_notes[0]
+    assert "What is total sales?" in buddy.conversation.memory_notes[0]
+    assert result.memory_notice and "limited recent context" in result.memory_notice
+    assert "PRIVATE" not in result.memory_notice
+    mistral.assert_not_called()
+    summary = telemetry.summarize(events)
+    assert summary["fallbacks"] == 0
+    expected_attempts = 0 if failure_kind == "missing_key" else 1
+    assert summary["attempts"] == expected_attempts
+
+
+def test_chart_result_survives_memory_outage(monkeypatch):
+    from google import genai
+    from google.genai.errors import APIError
+
+    monkeypatch.setattr(config, "GEMINI_API_KEY", "dummy")
+    monkeypatch.setattr(config, "MISTRAL_API_KEY", "dummy")
+    monkeypatch.setattr(config, "PROVIDER_MAX_RETRIES", 0)
+    fake = MagicMock()
+    fake.__enter__.return_value = fake
+    fake.models.generate_content.side_effect = APIError(
+        429, {"error": {"message": "quota exceeded", "code": 429}}
+    )
+    monkeypatch.setattr(genai, "Client", MagicMock(return_value=fake))
+    monkeypatch.setattr(
+        databuddy.message_handler,
+        "route_message",
+        lambda **_: {"route": "visualization", "reply": ""},
+    )
+    monkeypatch.setattr(databuddy.analyst, "generate_chart_code", lambda *a, **k: "fig = {}")
+    monkeypatch.setattr(
+        databuddy.executor,
+        "run_code",
+        lambda *a: databuddy.executor.ExecutionResult(
+            True, "North 400", None, chart_json='{"data": []}', chart_description="Sales chart"
+        ),
+    )
+    monkeypatch.setattr(databuddy.analyst, "write_chart_insight", lambda *a, **k: "North is 400.")
+
+    buddy = databuddy.DataBuddy(b"region,sales\nNorth,400\n", filename="demo.csv")
+    buddy.conversation.memory_summary = "Keep summary."
+    result = buddy.ask("Chart sales")
+
+    assert result.status == "success"
+    assert result.answer == "North is 400."
+    assert result.chart_json == '{"data": []}'
+    assert buddy.conversation.memory_summary == "Keep summary."
+    assert len(buddy.conversation.memory_notes) == 1
+    assert "[success; uncompressed]" in buddy.conversation.memory_notes[0]
+    assert result.memory_notice
+
+
+def test_real_gemini_memory_rollover_failure_and_recovery(monkeypatch):
+    from types import SimpleNamespace
+    from google import genai
+    from google.genai.errors import APIError
+    from backend.core import llm_clients, telemetry
+
+    monkeypatch.setattr(config, "GEMINI_API_KEY", "dummy")
+    monkeypatch.setattr(config, "MISTRAL_API_KEY", "dummy")
+    monkeypatch.setattr(config, "PROVIDER_MAX_RETRIES", 0)
+    mistral = MagicMock(side_effect=AssertionError("Mistral fallback must not be called"))
+    monkeypatch.setattr(llm_clients, "_mistral_completion", mistral)
+
+    call_number = 0
+
+    def fake_generate_content(**kwargs):
+        nonlocal call_number
+        call_number += 1
+        prompt = kwargs["contents"]
+        if call_number == 6:
+            assert '"new_notes"' in prompt
+            raise APIError(429, {"error": {"message": "PRIVATE QUOTA", "code": 429}})
+        if call_number == 7:
+            assert '"older_summary": "Older verified summary."' in prompt
+            assert '"new_notes"' in prompt
+            return SimpleNamespace(
+                text="Merged summary after recovery.",
+                usage_metadata=SimpleNamespace(prompt_token_count=10, candidates_token_count=5, total_token_count=15),
+            )
+        return SimpleNamespace(
+            text=f"Gemini note {call_number}.",
+            usage_metadata=SimpleNamespace(prompt_token_count=4, candidates_token_count=3, total_token_count=7),
+        )
+
+    fake = MagicMock()
+    fake.__enter__.return_value = fake
+    fake.models.generate_content.side_effect = fake_generate_content
+    monkeypatch.setattr(genai, "Client", MagicMock(return_value=fake))
+
+    state = memory.ConversationState(memory_summary="Older verified summary.")
+    events = []
+    with telemetry.observe(events):
+        for n in range(1, 6):
+            state.update_memory(f"q{n}", f"a{n}")
+        assert len(state.memory_notes) == 5
+        assert state.memory_summary == "Older verified summary."
+
+        # Sixth exchange hits Gemini 429 during rollover: keep old summary and 6 bounded notes.
+        state.update_memory("q6", "a6")
+        assert state.memory_summary == "Older verified summary."
+        assert len(state.memory_notes) == 6
+        assert "[success; uncompressed] User: q6 Assistant: a6" in state.memory_notes[-1]
+        assert state.memory_notice and "quota" in state.memory_notice.lower()
+
+        # Seventh exchange recovers via Gemini and merges prior summary + buffered notes.
+        state.update_memory("q7", "a7")
+        assert state.memory_summary == "Merged summary after recovery."
+        assert state.memory_notes == []
+        assert state.memory_notice is None
+
+    mistral.assert_not_called()
+    summary = telemetry.summarize(events)
+    assert summary["attempts"] == 7
+    assert summary["fallbacks"] == 0
+    assert all(call["provider"] == "Gemini" and call["model"] == config.MEMORY_MODEL for call in summary["calls"])

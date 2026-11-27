@@ -351,10 +351,11 @@ def test_saved_explanation_and_memory_paths_remain_intact(monkeypatch):
     assert llm_clients.call_saved_explanation_llm("Explain") == "Saved Hydrogen reply"
     assert gemini.call_args.kwargs["model"] == "saved-hydrogen"
 
-    # Memory still falls back to Mistral on transient Gemini failure.
+    # Memory falls back to local ConversationState notes without calling Mistral.
     gemini_fail = MagicMock(side_effect=llm_clients.ProviderUnavailableError("Gemini memory down"))
-    mistral = MagicMock(return_value="Mistral memory note")
+    mistral = MagicMock(side_effect=AssertionError("Mistral fallback must not be called"))
     monkeypatch.setattr(llm_clients, "_gemini_completion", gemini_fail)
     monkeypatch.setattr(llm_clients, "_mistral_completion", mistral)
-    assert llm_clients.call_memory_llm("exchange") == "Mistral memory note"
-    mistral.assert_called_once()
+    with pytest.raises(llm_clients.ProviderUnavailableError, match="Gemini memory down"):
+        llm_clients.call_memory_llm("exchange")
+    mistral.assert_not_called()

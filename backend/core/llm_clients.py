@@ -506,14 +506,4 @@ def _gemini_completion(prompt: str) -> str:
 
 
 def call_memory_llm(prompt: str) -> str:
-    _validate_prompt(prompt)
-    return _failover(
-        lambda: _gemini_completion(prompt),
-        lambda: _mistral_completion(
-            prompt, config.EXPLANATION_MODEL, max_tokens=config.MAX_MEMORY_RESPONSE_TOKENS
-        ),
-        minimum_primary_seconds=10.1,
-        fallback_provider="Mistral",
-        fallback_key=config.MISTRAL_API_KEY,
-        fallback_model=config.EXPLANATION_MODEL,
-    )
+    return _gemini_completion(prompt)

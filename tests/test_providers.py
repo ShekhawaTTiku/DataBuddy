@@ -160,22 +160,30 @@ def test_gemini_sdk_options_and_no_sdk_retries(monkeypatch):
 
 
 @pytest.mark.parametrize("status", [408, 429, 503])
-def test_real_gemini_transient_errors_use_mistral(monkeypatch, status):
+def test_real_gemini_transient_errors_do_not_call_mistral(monkeypatch, status):
     from google import genai
     from google.genai.errors import APIError
+    from backend.core import telemetry
     monkeypatch.setattr(config, "GEMINI_API_KEY", "dummy")
     monkeypatch.setattr(config, "MISTRAL_API_KEY", "dummy")
     monkeypatch.setattr(config, "PROVIDER_MAX_RETRIES", 0)
     fake = MagicMock(); fake.__enter__.return_value = fake
     fake.models.generate_content.side_effect = APIError(status, {"error": {"message": "PRIVATE BODY", "code": status}})
     monkeypatch.setattr(genai, "Client", MagicMock(return_value=fake))
-    fallback = MagicMock(return_value="Mistral note"); monkeypatch.setattr(clients, "_mistral_completion", fallback)
-    assert clients.call_memory_llm("exchange") == "Mistral note"
-    fallback.assert_called_once_with("exchange", config.EXPLANATION_MODEL, max_tokens=config.MAX_MEMORY_RESPONSE_TOKENS)
+    fallback = MagicMock(side_effect=AssertionError("Mistral fallback must not be called"))
+    monkeypatch.setattr(clients, "_mistral_completion", fallback)
+    events = []
+    with telemetry.observe(events):
+        with pytest.raises(clients.ProviderUnavailableError) as caught:
+            clients.call_memory_llm("exchange")
+    assert "PRIVATE" not in str(caught.value)
+    fallback.assert_not_called()
+    assert telemetry.summarize(events)["attempts"] == 1
+    assert telemetry.summarize(events)["fallbacks"] == 0
 
 
 @pytest.mark.parametrize("status", [400, 401, 403, 404])
-def test_real_gemini_configuration_errors_do_not_silently_failover(monkeypatch, status):
+def test_real_gemini_configuration_errors_do_not_retry_or_failover(monkeypatch, status):
     from google import genai
     from google.genai.errors import APIError
     monkeypatch.setattr(config, "GEMINI_API_KEY", "dummy")
@@ -189,23 +197,27 @@ def test_real_gemini_configuration_errors_do_not_silently_failover(monkeypatch, 
     fallback.assert_not_called()
 
 
-def test_missing_gemini_key_uses_mistral(monkeypatch):
+def test_missing_gemini_key_raises_without_mistral(monkeypatch):
     monkeypatch.setattr(config, "MISTRAL_API_KEY", "dummy")
-    fallback = MagicMock(return_value="brief"); monkeypatch.setattr(clients, "_mistral_completion", fallback)
-    assert clients.call_memory_llm("exchange") == "brief"
-    fallback.assert_called_once()
+    fallback = MagicMock(side_effect=AssertionError("Mistral fallback must not be called"))
+    monkeypatch.setattr(clients, "_mistral_completion", fallback)
+    with pytest.raises(clients.ProviderUnavailableError, match="GEMINI_API_KEY"):
+        clients.call_memory_llm("exchange")
+    fallback.assert_not_called()
 
 
-def test_empty_gemini_response_uses_mistral(monkeypatch):
+def test_empty_gemini_response_raises_without_mistral(monkeypatch):
     from google import genai
     monkeypatch.setattr(config, "GEMINI_API_KEY", "dummy")
     monkeypatch.setattr(config, "MISTRAL_API_KEY", "dummy")
     fake = MagicMock(); fake.__enter__.return_value = fake
     fake.models.generate_content.return_value = SimpleNamespace(text="")
     monkeypatch.setattr(genai, "Client", MagicMock(return_value=fake))
-    fallback = MagicMock(return_value="brief"); monkeypatch.setattr(clients, "_mistral_completion", fallback)
-    assert clients.call_memory_llm("exchange") == "brief"
-    fallback.assert_called_once()
+    fallback = MagicMock(side_effect=AssertionError("Mistral fallback must not be called"))
+    monkeypatch.setattr(clients, "_mistral_completion", fallback)
+    with pytest.raises(clients.ProviderUnavailableError, match="no memory note"):
+        clients.call_memory_llm("exchange")
+    fallback.assert_not_called()
 
 
 def test_installed_gemini_sdk_serializes_real_request_offline(monkeypatch):
@@ -250,19 +262,21 @@ def test_fallback_keeps_time_after_primary_exhausts_its_slice(monkeypatch):
 
 
 @pytest.mark.parametrize("seconds", [1, 6, 9, 9.9])
-def test_short_memory_budget_skips_gemini_minimum_deadline(monkeypatch, seconds):
+def test_short_memory_budget_skips_gemini_without_mistral_fallback(monkeypatch, seconds):
     from google import genai
     monkeypatch.setattr(config, "GEMINI_API_KEY", "dummy")
     monkeypatch.setattr(config, "MISTRAL_API_KEY", "dummy")
     factory = MagicMock(); monkeypatch.setattr(genai, "Client", factory)
-    fallback = MagicMock(return_value="brief"); monkeypatch.setattr(clients, "_mistral_completion", fallback)
+    fallback = MagicMock(side_effect=AssertionError("Mistral fallback must not be called"))
+    monkeypatch.setattr(clients, "_mistral_completion", fallback)
     with clients.request_budget(seconds=seconds):
-        assert clients.call_memory_llm("exchange") == "brief"
+        with pytest.raises(clients.ProviderUnavailableError):
+            clients.call_memory_llm("exchange")
     factory.assert_not_called()
-    fallback.assert_called_once()
+    fallback.assert_not_called()
 
 
-def test_gemini_gets_valid_deadline_when_remaining_budget_allows(monkeypatch):
+def test_gemini_memory_uses_full_remaining_budget_without_mistral_reservation(monkeypatch):
     from google import genai
     monkeypatch.setattr(config, "GEMINI_API_KEY", "dummy")
     monkeypatch.setattr(config, "MISTRAL_API_KEY", "dummy")
@@ -271,4 +285,4 @@ def test_gemini_gets_valid_deadline_when_remaining_budget_allows(monkeypatch):
     factory = MagicMock(return_value=fake); monkeypatch.setattr(genai, "Client", factory)
     with clients.request_budget(seconds=15):
         assert clients.call_memory_llm("exchange") == "brief"
-    assert 10000 <= factory.call_args.kwargs["http_options"].timeout < 15000
+    assert 14000 <= factory.call_args.kwargs["http_options"].timeout <= 15000
